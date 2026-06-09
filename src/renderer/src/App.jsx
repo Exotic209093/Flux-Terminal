@@ -137,6 +137,9 @@ export default function App() {
                 openSession(found)
               } else if (tries > 0) {
                 setTimeout(() => open(tries - 1), 600)
+              } else {
+                setSendState('error')
+                setSendError('New session did not appear — it may still be starting. Try again.')
               }
             })
           }
