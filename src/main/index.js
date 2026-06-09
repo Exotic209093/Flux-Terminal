@@ -18,8 +18,8 @@ let ptyProc = null
 let liveTracker = null
 let usagePoller = null
 
-// Prompt library — one shared store for the app lifetime
-const promptStore = new PromptStore()
+// Prompt library — path is set in whenReady once app.getPath() is available.
+let promptStore = null
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -158,13 +158,14 @@ ipcMain.handle('commands:list', (_e, cwd) => {
 // ---- Prompt library ---------------------------------------------------------
 ipcMain.handle('prompts:list', () => {
   try {
-    return { ok: true, prompts: promptStore.list() }
+    return { ok: true, prompts: promptStore ? promptStore.list() : [] }
   } catch (err) {
     return { ok: false, error: err.message, prompts: [] }
   }
 })
 ipcMain.handle('prompts:save', (_e, data) => {
   try {
+    if (!promptStore) return { ok: false, error: 'not ready' }
     return { ok: true, prompt: promptStore.save(data) }
   } catch (err) {
     return { ok: false, error: err.message }
@@ -172,7 +173,7 @@ ipcMain.handle('prompts:save', (_e, data) => {
 })
 ipcMain.handle('prompts:delete', (_e, id) => {
   try {
-    promptStore.delete(id)
+    if (promptStore) promptStore.delete(id)
     return { ok: true }
   } catch (err) {
     return { ok: false, error: err.message }
@@ -180,7 +181,7 @@ ipcMain.handle('prompts:delete', (_e, id) => {
 })
 ipcMain.handle('prompts:used', (_e, id) => {
   try {
-    promptStore.used(id)
+    if (promptStore) promptStore.used(id)
     return { ok: true }
   } catch (err) {
     return { ok: false, error: err.message }
@@ -416,6 +417,7 @@ ipcMain.on('live:stop', () => {
 // ---- App lifecycle --------------------------------------------------------
 app.whenReady().then(() => {
   createWindow()
+  promptStore = new PromptStore(path.join(app.getPath('userData'), 'prompts.json'))
   promptStore.seed()
 
   liveTracker = new LiveTracker((snapshot) => {
