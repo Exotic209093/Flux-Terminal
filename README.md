@@ -85,8 +85,14 @@ scripts/
 - [x] **Milestone 1 — Vertical slice:** terminal pane + sidebar listing real `~/.claude`
       sessions, with a defensive JSONL parser (tolerant of half-written lines & unknown
       event types). Verified: 70 sessions, 21,420 msgs, 0 parse errors.
-- [ ] **Milestone 2 — The four pillars:**
-  - [ ] Themes & visual effects
-  - [ ] Live dashboards (tokens / cost / tools, real per-model pricing incl. cache tokens)
-  - [ ] Session timeline & replay
-  - [ ] Cross-session stats & gamification
+- [x] **Milestone 2 — The four pillars:**
+  - [x] Themes & visual effects (5 presets, live switching, glow/gradient effects)
+  - [x] Live dashboards (tokens / cost / tools, real per-model pricing incl. cache tokens)
+  - [x] Session timeline & replay
+  - [x] Cross-session stats & gamification (activity chart, achievements, streaks)
+
+### Possible next steps
+- Live-tail the running session's JSONL into the dashboard while you work
+- Timeline scrubber / playback controls; collapse long thinking blocks
+- Render images embedded in tool results; syntax-highlight code in the replay
+- Package installers (`electron-builder`) for a double-click app
