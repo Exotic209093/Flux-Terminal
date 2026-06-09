@@ -82,9 +82,9 @@ scripts/
 ## Roadmap
 
 - [x] **Milestone 0 — De-risk:** real PTY in an Electron/xterm window; `claude` runs in it.
-- [ ] **Milestone 1 — Vertical slice:** terminal pane + sidebar listing real `~/.claude`
+- [x] **Milestone 1 — Vertical slice:** terminal pane + sidebar listing real `~/.claude`
       sessions, with a defensive JSONL parser (tolerant of half-written lines & unknown
-      event types).
+      event types). Verified: 70 sessions, 21,420 msgs, 0 parse errors.
 - [ ] **Milestone 2 — The four pillars:**
   - [ ] Themes & visual effects
   - [ ] Live dashboards (tokens / cost / tools, real per-model pricing incl. cache tokens)

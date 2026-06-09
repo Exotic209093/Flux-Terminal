@@ -52,7 +52,7 @@ ipcMain.handle('sessions:list', (_e, opts) => {
 })
 ipcMain.handle('session:read', (_e, file) => {
   try {
-    return { ok: true, session: parseSessionFile(file) }
+    return { ok: true, session: parseSessionFile(file, { timeline: true }) }
   } catch (err) {
     return { ok: false, error: err.message }
   }
@@ -99,17 +99,26 @@ app.whenReady().then(async () => {
     win.show()
     win.focus()
 
-    // For the M1 layout capture we just want the shell prompt + sidebar; the
-    // full claude-TUI gate was already verified separately.
+    // Wait for the sidebar to populate, then open a session to capture the
+    // replay/timeline view (Milestone 2).
     await wait(2500)
-    if (!ptyProc) log('WARNING: ptyProc not created (renderer never called pty:spawn)')
-
-    log('ensuring renderer is responsive before capture')
-    const dom = await win.webContents.executeJavaScript(`(() => {
-      const cs = (sel) => { const el = document.querySelector(sel); if (!el) return 'missing'; const s = getComputedStyle(el); return { w: Math.round(el.getBoundingClientRect().width), flex: s.flex, display: getComputedStyle(el.parentElement||document.body).display } }
-      return JSON.stringify({ shell: cs('.app-shell'), sidebar: cs('.sidebar'), main: cs('.main-pane') })
+    const clicked = await win.webContents.executeJavaScript(`(() => {
+      const card = document.querySelector('.session-card')
+      if (!card) return 'no-card'
+      card.click()
+      return (card.querySelector('.sc-title') || {}).textContent || 'clicked'
     })()`)
-    log('dom computed: ' + dom)
+    log('opened session: ' + clicked)
+    await wait(2200) // detail parse + render
+
+    const dom = await win.webContents.executeJavaScript(`(() => {
+      return JSON.stringify({
+        view: document.querySelector('.session-view') ? 'session' : 'terminal',
+        timelineItems: document.querySelectorAll('.tl-item').length,
+        cost: (document.querySelector('.sv-stat.accent .sv-stat-v')||{}).textContent || null
+      })
+    })()`)
+    log('session view: ' + dom)
 
     log('capturing page')
     const img = await win.webContents.capturePage()

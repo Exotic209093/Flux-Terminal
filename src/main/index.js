@@ -81,7 +81,7 @@ ipcMain.handle('sessions:list', (_e, opts) => {
 
 ipcMain.handle('session:read', (_e, file) => {
   try {
-    return { ok: true, session: parseSessionFile(file) }
+    return { ok: true, session: parseSessionFile(file, { timeline: true }) }
   } catch (err) {
     return { ok: false, error: err.message }
   }

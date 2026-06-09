@@ -31,11 +31,32 @@ function addUsage(acc, u) {
   acc.cacheCreation += u.cache_creation_input_tokens || 0
 }
 
+const MAX_TEXT = 6000 // cap per-item text so a huge message can't bloat the UI
+
+function truncate(s, n = MAX_TEXT) {
+  if (typeof s !== 'string') return ''
+  return s.length > n ? s.slice(0, n) + '…' : s
+}
+
+/** Render a tool input/result block to a short preview string. */
+function preview(value, n = 600) {
+  if (value == null) return ''
+  if (typeof value === 'string') return truncate(value, n)
+  try {
+    return truncate(JSON.stringify(value), n)
+  } catch {
+    return ''
+  }
+}
+
 /**
  * Parse a session file into a structured summary model.
  * Reads the whole file (sessions are small — tens to low thousands of lines).
+ * Pass { timeline: true } to also collect an ordered list of conversation items
+ * (user prompts, thinking, assistant text, tool calls + results) for the replay view.
  */
-function parseSessionFile(filePath) {
+function parseSessionFile(filePath, opts = {}) {
+  const collectTimeline = !!opts.timeline
   let raw = ''
   try {
     raw = fs.readFileSync(filePath, 'utf-8')
@@ -43,6 +64,7 @@ function parseSessionFile(filePath) {
     return { ok: false, error: err.message, file: filePath }
   }
 
+  const timeline = collectTimeline ? [] : null
   const lines = raw.split('\n')
   const model = {
     ok: true,
@@ -95,14 +117,14 @@ function parseSessionFile(filePath) {
         break
       case 'user':
         model.counts.user++
-        countContent(o, model)
+        countContent(o, model, timeline, 'user')
         break
       case 'assistant': {
         model.counts.assistant++
         const msg = o.message || {}
         if (msg.model) modelSet.add(msg.model)
         addUsage(model.usage, msg.usage)
-        countContent(o, model)
+        countContent(o, model, timeline, 'assistant')
         break
       }
       case 'system':
@@ -116,25 +138,51 @@ function parseSessionFile(filePath) {
 
   model.counts.total = model.counts.user + model.counts.assistant
   model.models = Array.from(modelSet)
+  if (timeline) model.timeline = timeline
   return model
 }
 
-/** Walk a message's content blocks, tallying thinking / tool_use / tool_result. */
-function countContent(o, model) {
+/**
+ * Walk a message's content blocks: tally counts, and (when `timeline` is given)
+ * append ordered replay items. `role` is 'user' or 'assistant'.
+ */
+function countContent(o, model, timeline, role) {
+  const ts = o.timestamp || null
   const content = o.message && o.message.content
+
+  // A user turn may be a bare string prompt rather than a block array.
+  if (role === 'user' && typeof content === 'string') {
+    if (timeline && content.trim()) timeline.push({ kind: 'user', ts, text: truncate(content) })
+    return
+  }
   if (!Array.isArray(content)) return
+
   for (const block of content) {
     if (!block || typeof block !== 'object') continue
     switch (block.type) {
+      case 'text':
+        if (timeline && block.text && block.text.trim()) {
+          timeline.push({ kind: role === 'user' ? 'user' : 'text', ts, text: truncate(block.text) })
+        }
+        break
       case 'thinking':
         model.counts.thinking++
+        if (timeline && block.thinking) {
+          timeline.push({ kind: 'thinking', ts, text: truncate(block.thinking) })
+        }
         break
       case 'tool_use':
         model.counts.toolUse++
         if (block.name) model.tools[block.name] = (model.tools[block.name] || 0) + 1
+        if (timeline) {
+          timeline.push({ kind: 'tool_use', ts, toolName: block.name || 'tool', toolInput: preview(block.input) })
+        }
         break
       case 'tool_result':
         model.counts.toolResult++
+        if (timeline) {
+          timeline.push({ kind: 'tool_result', ts, isError: !!block.is_error, text: preview(block.content) })
+        }
         break
       default:
         break
