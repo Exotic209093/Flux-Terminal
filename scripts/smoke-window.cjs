@@ -10,6 +10,8 @@ const { app, BrowserWindow, ipcMain } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const { createPty } = require('../src/main/pty')
+const { listSessions } = require('../src/main/sessions')
+const { parseSessionFile } = require('../src/main/parser')
 
 const ROOT = path.join(__dirname, '..')
 const LOG = path.join(ROOT, 'smoke-window.log')
@@ -27,7 +29,7 @@ let ptyProc = null
 const watchdog = setTimeout(() => {
   log('WATCHDOG fired — force exit')
   app.exit(2)
-}, 15000)
+}, 20000)
 
 ipcMain.handle('pty:spawn', (_e, opts) => {
   log('pty:spawn requested ' + JSON.stringify(opts))
@@ -41,6 +43,21 @@ ipcMain.handle('pty:spawn', (_e, opts) => {
   log('pty spawned pid=' + ptyProc.pid)
   return { pid: ptyProc.pid }
 })
+ipcMain.handle('sessions:list', (_e, opts) => {
+  try {
+    return { ok: true, sessions: listSessions(opts || {}) }
+  } catch (err) {
+    return { ok: false, error: err.message, sessions: [] }
+  }
+})
+ipcMain.handle('session:read', (_e, file) => {
+  try {
+    return { ok: true, session: parseSessionFile(file) }
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+})
+
 ipcMain.on('pty:write', (_e, d) => ptyProc && ptyProc.write(d))
 ipcMain.on('pty:resize', (_e, { cols, rows }) => {
   if (ptyProc) {
@@ -66,7 +83,8 @@ app.whenReady().then(async () => {
         preload: path.join(ROOT, 'out', 'preload', 'index.js'),
         sandbox: false,
         contextIsolation: true,
-        nodeIntegration: false
+        nodeIntegration: false,
+        backgroundThrottling: false
       }
     })
 
@@ -81,19 +99,17 @@ app.whenReady().then(async () => {
     win.show()
     win.focus()
 
-    await wait(1800)
-    if (ptyProc) {
-      log('injecting command into pty')
-      ptyProc.write('Write-Output "Flux Terminal is alive — milestone 0 ok"\r')
-    } else {
-      log('WARNING: ptyProc not created (renderer never called pty:spawn)')
-    }
-    await wait(2200)
+    // For the M1 layout capture we just want the shell prompt + sidebar; the
+    // full claude-TUI gate was already verified separately.
+    await wait(2500)
+    if (!ptyProc) log('WARNING: ptyProc not created (renderer never called pty:spawn)')
 
     log('ensuring renderer is responsive before capture')
-    await win.webContents.executeJavaScript('document.querySelector(".xterm") ? "xterm-mounted" : "no-xterm"').then(
-      (r) => log('dom check: ' + r)
-    )
+    const dom = await win.webContents.executeJavaScript(`(() => {
+      const cs = (sel) => { const el = document.querySelector(sel); if (!el) return 'missing'; const s = getComputedStyle(el); return { w: Math.round(el.getBoundingClientRect().width), flex: s.flex, display: getComputedStyle(el.parentElement||document.body).display } }
+      return JSON.stringify({ shell: cs('.app-shell'), sidebar: cs('.sidebar'), main: cs('.main-pane') })
+    })()`)
+    log('dom computed: ' + dom)
 
     log('capturing page')
     const img = await win.webContents.capturePage()

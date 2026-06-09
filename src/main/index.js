@@ -1,6 +1,8 @@
 const { app, BrowserWindow, ipcMain } = require('electron')
 const path = require('path')
 const { createPty } = require('./pty')
+const { listSessions } = require('./sessions')
+const { parseSessionFile } = require('./parser')
 
 let mainWindow = null
 let ptyProc = null
@@ -16,7 +18,9 @@ function createWindow() {
       preload: path.join(__dirname, '../preload/index.js'),
       sandbox: false,
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      // Keep the terminal rendering PTY output even when the window is unfocused.
+      backgroundThrottling: false
     }
   })
 
@@ -63,6 +67,23 @@ ipcMain.on('pty:resize', (_e, { cols, rows }) => {
     } catch {
       /* ignore transient resize errors */
     }
+  }
+})
+
+// ---- Sessions bridge ------------------------------------------------------
+ipcMain.handle('sessions:list', (_e, opts) => {
+  try {
+    return { ok: true, sessions: listSessions(opts || {}) }
+  } catch (err) {
+    return { ok: false, error: err.message, sessions: [] }
+  }
+})
+
+ipcMain.handle('session:read', (_e, file) => {
+  try {
+    return { ok: true, session: parseSessionFile(file) }
+  } catch (err) {
+    return { ok: false, error: err.message }
   }
 })
 

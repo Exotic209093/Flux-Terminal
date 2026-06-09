@@ -16,5 +16,9 @@ contextBridge.exposeInMainWorld('flux', {
       ipcRenderer.on('pty:exit', listener)
       return () => ipcRenderer.removeListener('pty:exit', listener)
     }
+  },
+  sessions: {
+    list: (opts) => ipcRenderer.invoke('sessions:list', opts),
+    read: (file) => ipcRenderer.invoke('session:read', file)
   }
 })
