@@ -216,6 +216,7 @@ ipcMain.on('session:unwatch', () => {
 // reply is appended to the session's JSONL — the watcher above surfaces it.
 let sendChild = null
 let lastSentAt = 0
+let interrupting = false
 ipcMain.handle('session:send', (_e, { sessionId, cwd, message, model }) => {
   if (!sessionId || !message) return { ok: false, error: 'missing sessionId or message' }
 
@@ -260,6 +261,11 @@ ipcMain.handle('session:send', (_e, { sessionId, cwd, message, model }) => {
       if (settled) return
       settled = true
       clearTimeout(timer)
+      if (interrupting) {
+        state = 'interrupted'
+        error = null
+        interrupting = false
+      }
       emit('session:sendstatus', { sessionId, state, error: error || null })
       sendChild = null
     }
@@ -311,6 +317,11 @@ ipcMain.handle('session:new', (_e, { message, cwd, model }) => {
       if (settled) return
       settled = true
       clearTimeout(timer)
+      if (interrupting) {
+        state = 'interrupted'
+        error = null
+        interrupting = false
+      }
       emit('session:sendstatus', { sessionId, state, error: error || null })
       sendChild = null
     }
@@ -340,12 +351,12 @@ ipcMain.handle('session:new', (_e, { message, cwd, model }) => {
 // ---- Interrupt ------------------------------------------------------------
 ipcMain.handle('session:interrupt', () => {
   if (!sendChild) return { ok: false, error: 'nothing running' }
+  interrupting = true
   try {
     sendChild.kill()
   } catch {
     /* already gone */
   }
-  emit('session:sendstatus', { state: 'interrupted', error: null })
   return { ok: true }
 })
 
