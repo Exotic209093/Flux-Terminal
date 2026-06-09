@@ -70,5 +70,13 @@ contextBridge.exposeInMainWorld('flux', {
   },
   dialog: {
     pickFolder: () => ipcRenderer.invoke('dialog:pickFolder')
+  },
+  search: {
+    query: (query) => ipcRenderer.invoke('search:query', { query }),
+    onProgress: (cb) => {
+      const listener = (_e, p) => cb(p)
+      ipcRenderer.on('search:progress', listener)
+      return () => ipcRenderer.removeListener('search:progress', listener)
+    }
   }
 })

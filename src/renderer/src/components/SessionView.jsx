@@ -33,8 +33,8 @@ function friendlyError(err) {
   return err
 }
 
-function TimelineItem({ item, onImage }) {
-  const cls = 'tl-item tl-' + item.kind + (item.isError ? ' tl-error' : '')
+function TimelineItem({ item, onImage, flash }) {
+  const cls = 'tl-item tl-' + item.kind + (item.isError ? ' tl-error' : '') + (flash ? ' tl-flash' : '')
   return (
     <div className={cls}>
       <div className="tl-gutter">
@@ -67,10 +67,11 @@ function TimelineItem({ item, onImage }) {
   )
 }
 
-export default function SessionView({ detail, loading, sendState, sendError, onSend, newChat, onPickFolder }) {
+export default function SessionView({ detail, loading, sendState, sendError, onSend, newChat, onPickFolder, scrollTarget }) {
   const scrollRef = useRef(null)
   const autoFollow = useRef(true)
   const [showJump, setShowJump] = useState(false)
+  const [flashIdx, setFlashIdx] = useState(null)
   const [draft, setDraft] = useState('')
   const [pending, setPending] = useState(null)
   const [commands, setCommands] = useState([])
@@ -110,6 +111,22 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
   useEffect(() => {
     if (pending != null && totalCount > totalAtSend.current) setPending(null)
   }, [totalCount, pending])
+
+  // Scroll to a specific timeline index and briefly flash it.
+  // scrollTarget = { idx: number, key: any } — key change triggers the effect.
+  useEffect(() => {
+    if (scrollTarget == null || scrollTarget.idx == null) return
+    const el = scrollRef.current
+    if (!el) return
+    const item = el.querySelectorAll('.tl-item')[scrollTarget.idx]
+    if (!item) return
+    autoFollow.current = false
+    setShowJump(false)
+    item.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    setFlashIdx(scrollTarget.idx)
+    const timer = setTimeout(() => setFlashIdx(null), 900)
+    return () => clearTimeout(timer)
+  }, [scrollTarget]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Slash commands are cwd-dependent (project commands), so refetch per session.
   useEffect(() => {
@@ -338,7 +355,7 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
       <div className="sv-timeline-wrap">
         <div className="sv-timeline" ref={scrollRef} onScroll={onScroll}>
           {(detail.timeline || []).map((item, i) => (
-            <TimelineItem key={i} item={item} onImage={setLightbox} />
+            <TimelineItem key={i} item={item} onImage={setLightbox} flash={i === flashIdx} />
           ))}
           {pending && (
             <div className="tl-item tl-user tl-pending">
