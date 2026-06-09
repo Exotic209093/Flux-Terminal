@@ -1002,3 +1002,74 @@ body,
     grid-template-columns: 1fr;
   }
 }
+
+/* ---- plan usage gauges ---------------------------------------------- */
+.usage-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-left: auto;
+  padding: 0 10px;
+}
+.usage-gauge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.usage-label {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 10px;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+.usage-track {
+  width: 64px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.usage-fill {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--accent);
+  transition: width 0.4s ease;
+}
+.usage-gauge.warm .usage-fill { background: #e8a33d; }
+.usage-gauge.hot .usage-fill { background: #e8503d; }
+.usage-gauge.warm .usage-pct { color: #e8a33d; }
+.usage-gauge.hot .usage-pct { color: #e8503d; }
+.usage-pct {
+  min-width: 32px;
+  font-variant-numeric: tabular-nums;
+}
+.usage-reset {
+  color: var(--text-faint);
+  font-size: 10px;
+  white-space: nowrap;
+}
+.usage-refresh {
+  background: none;
+  border: none;
+  color: var(--text-faint);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 2px 4px;
+}
+.usage-refresh:hover { color: var(--text); }
+.usage-err { font-size: 11px; color: var(--text-faint); }
+.usage-stale { font-size: 10px; color: #e8a33d; }
+.usage-bar.detailed {
+  margin: 10px 0 0;
+  margin-left: 0;
+  padding: 10px 12px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  flex-wrap: wrap;
+}

@@ -6,6 +6,8 @@ import StatsView from './components/StatsView'
 import SkillsView from './components/SkillsView'
 import LivePanel from './components/LivePanel'
 import { applyTheme, loadTheme, saveTheme } from './lib/themes'
+import UsageBar from './components/UsageBar'
+import { useUsage } from './lib/useUsage'
 
 // The terminal stays MOUNTED at all times so its PTY (and any running `claude`)
 // survives switching to a session/stats view and back. Opening a session also
@@ -23,6 +25,8 @@ export default function App() {
   const [view, setView] = useState('terminal') // 'terminal' | 'session' | 'stats'
 
   const [theme, setThemeState] = useState(loadTheme())
+
+  const { usage, refresh: refreshUsage } = useUsage()
 
   const openFileRef = useRef(null) // the file currently watched, for refresh matching
 
@@ -162,6 +166,7 @@ export default function App() {
               {selected.title}
             </button>
           )}
+          <UsageBar usage={usage} onRefresh={refreshUsage} />
         </div>
 
         {/* Terminal stays mounted; just hidden when not active. */}
