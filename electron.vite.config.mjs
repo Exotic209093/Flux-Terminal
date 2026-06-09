@@ -23,7 +23,8 @@ export default defineConfig({
           live: resolve('src/main/live.js'),
           skills: resolve('src/main/skills.js'),
           usage: resolve('src/main/usage.js'),
-          commands: resolve('src/main/commands.js')
+          commands: resolve('src/main/commands.js'),
+          subagents: resolve('src/main/subagents.js')
         },
         output: {
           entryFileNames: '[name].js'
