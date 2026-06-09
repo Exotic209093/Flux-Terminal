@@ -1269,3 +1269,17 @@ body,
   padding: 2px 8px;
 }
 .folder-pick:hover { color: var(--text); background: var(--bg-hover); }
+
+.composer-stop {
+  background: #e8503d;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  align-self: flex-end;
+}
+.composer-stop:hover { filter: brightness(1.08); }
+.tl-interrupted { color: #e8a33d; }

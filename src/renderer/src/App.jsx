@@ -77,8 +77,14 @@ export default function App() {
       }
     })
     const offStatus = window.flux.sessions.onSendStatus(({ state, error }) => {
-      setSendState(state === 'running' ? 'running' : state === 'error' ? 'error' : null)
-      setSendError(state === 'error' ? error : null)
+      if (state === 'running') setSendState('running')
+      else if (state === 'error') {
+        setSendState('error')
+        setSendError(error)
+      } else if (state === 'interrupted') {
+        setSendState('interrupted')
+        setSendError(null)
+      } else setSendState(null)
     })
     return () => {
       offRefresh()

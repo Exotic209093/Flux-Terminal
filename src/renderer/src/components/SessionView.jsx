@@ -262,6 +262,7 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
               </div>
             )}
             {sendState === 'error' && <div className="tl-senderror">⚠ {sendError}</div>}
+            {sendState === 'interrupted' && <div className="tl-senderror tl-interrupted">◼ Interrupted</div>}
           </div>
         </div>
         <Composer
@@ -346,6 +347,7 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
             </div>
           )}
           {sendState === 'error' && <div className="tl-senderror">⚠ {friendlyError(sendError)}</div>}
+          {sendState === 'interrupted' && <div className="tl-senderror tl-interrupted">◼ Interrupted</div>}
         </div>
 
         {showJump && (
@@ -431,13 +433,19 @@ function Composer({ draft, setDraft, onKeyDown, onSubmit, sendState, slashItems,
           disabled={sendState === 'running'}
         />
       </div>
-      <button
-        className="composer-send"
-        onClick={onSubmit}
-        disabled={sendState === 'running' || (!draft.trim() && !attachment)}
-      >
-        {sendState === 'running' ? '…' : 'Send'}
-      </button>
+      {sendState === 'running' ? (
+        <button className="composer-stop" onClick={() => window.flux.sessions.interrupt()} title="Stop">
+          ◼ Stop
+        </button>
+      ) : (
+        <button
+          className="composer-send"
+          onClick={onSubmit}
+          disabled={!draft.trim() && !attachment}
+        >
+          Send
+        </button>
+      )}
     </div>
   )
 }
