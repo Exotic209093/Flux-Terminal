@@ -1223,3 +1223,24 @@ body,
   padding: 4px 8px;
 }
 .chip-x:hover { color: var(--text); }
+
+/* ---- model picker ------------------------------------------------------- */
+.model-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-left: auto;
+  padding-right: 10px;
+}
+.model-picker-diamond { color: var(--accent); }
+.model-picker select {
+  background: var(--bg-elev);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 6px;
+  font-size: 12px;
+  cursor: pointer;
+}

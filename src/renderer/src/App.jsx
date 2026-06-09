@@ -7,6 +7,8 @@ import SkillsView from './components/SkillsView'
 import LivePanel from './components/LivePanel'
 import { applyTheme, loadTheme, saveTheme } from './lib/themes'
 import UsageBar from './components/UsageBar'
+import ModelPicker from './components/ModelPicker'
+import { DEFAULT_MODEL, isKnownModel } from './lib/models'
 
 // The terminal stays MOUNTED at all times so its PTY (and any running `claude`)
 // survives switching to a session/stats view and back. Opening a session also
@@ -24,6 +26,15 @@ export default function App() {
   const [view, setView] = useState('terminal') // 'terminal' | 'session' | 'stats'
 
   const [theme, setThemeState] = useState(loadTheme())
+
+  const [model, setModelState] = useState(() => {
+    const saved = localStorage.getItem('flux.model')
+    return saved && isKnownModel(saved) ? saved : DEFAULT_MODEL
+  })
+  const setModel = useCallback((m) => {
+    localStorage.setItem('flux.model', m)
+    setModelState(m)
+  }, [])
 
   const openFileRef = useRef(null) // the file currently watched, for refresh matching
 
@@ -163,6 +174,7 @@ export default function App() {
               {selected.title}
             </button>
           )}
+          <ModelPicker model={model} onChange={setModel} />
           <UsageBar />
         </div>
 
