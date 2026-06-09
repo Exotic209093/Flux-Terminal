@@ -133,6 +133,27 @@ ipcMain.handle('commands:list', (_e, cwd) => {
   }
 })
 
+// ---- Outgoing image stash ---------------------------------------------------
+// A pasted/attached image is written to a temp file; the composer references
+// its path in the prompt so the resumed claude can Read it. Best-effort
+// cleanup on quit.
+const stashedImages = []
+ipcMain.handle('image:stash', (_e, { data, mediaType }) => {
+  try {
+    const m = /^image\/(png|jpe?g|gif|webp)$/.exec(mediaType || '')
+    const ext = m ? m[1].replace('jpeg', 'jpg') : 'png'
+    const file = path.join(
+      os.tmpdir(),
+      'flux-img-' + Date.now() + '-' + Math.floor(Math.random() * 1e6) + '.' + ext
+    )
+    fs.writeFileSync(file, Buffer.from(data, 'base64'))
+    stashedImages.push(file)
+    return { ok: true, file }
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+})
+
 // ---- Session watch (re-parse on change) -----------------------------------
 let watchFile = null
 let watchTimer = null
@@ -305,6 +326,16 @@ app.whenReady().then(() => {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
+})
+
+app.on('will-quit', () => {
+  for (const f of stashedImages) {
+    try {
+      fs.unlinkSync(f)
+    } catch {
+      /* already gone */
+    }
+  }
 })
 
 app.on('window-all-closed', () => {

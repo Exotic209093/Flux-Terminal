@@ -58,5 +58,8 @@ contextBridge.exposeInMainWorld('flux', {
   },
   commands: {
     list: (cwd) => ipcRenderer.invoke('commands:list', cwd)
+  },
+  image: {
+    stash: (args) => ipcRenderer.invoke('image:stash', args)
   }
 })
