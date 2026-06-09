@@ -8,9 +8,12 @@ export function useUsage() {
 
   useEffect(() => {
     let alive = true
-    window.flux.usage.get().then((u) => {
-      if (alive && u) setUsage(u)
-    })
+    window.flux.usage
+      .get()
+      .then((u) => {
+        if (alive && u) setUsage(u)
+      })
+      .catch(() => {})
     const off = window.flux.usage.onUpdate(setUsage)
     return () => {
       alive = false
