@@ -1,6 +1,7 @@
 const fs = require('fs')
 const { parseLine, freshModel, applyEvent, finalize } = require('./parser')
 const { findSessionFileById } = require('./sessions')
+const { listSubagents, summarizeSubagents } = require('./subagents')
 
 // LiveTracker tails a Claude Code session JSONL as it is being written and emits
 // periodic snapshots (token usage, cost inputs, tools, recent events).
@@ -108,6 +109,14 @@ class LiveTracker {
   _emit(state, mtimeMs) {
     // finalize() mutates (strips the Set), so snapshot a shallow clone.
     const snap = finalize({ ...this.model, __models: this.model.__models })
+    let subagents = { running: 0, total: 0 }
+    if (this.file) {
+      try {
+        subagents = summarizeSubagents(listSubagents(this.file, { live: true }))
+      } catch {
+        /* dir may not exist yet */
+      }
+    }
     this.onUpdate({
       tracking: true,
       state, // 'starting' | 'live'
@@ -121,6 +130,7 @@ class LiveTracker {
       usage: snap.usage,
       tools: snap.tools,
       lastTool: snap.lastTool,
+      subagents,
       recent: this.timeline
         ? this.timeline
             .slice(-MAX_RECENT)

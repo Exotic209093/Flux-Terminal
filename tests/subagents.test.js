@@ -71,3 +71,11 @@ test('readSubagent returns a parsed timeline', () => {
   assert.ok(Array.isArray(detail.timeline))
   assert.ok(detail.timeline.some((t) => t.kind === 'text' && /hello/.test(t.text)))
 })
+
+const { summarizeSubagents } = require('../src/main/subagents')
+
+test('summarizeSubagents counts running vs total', () => {
+  const s = summarizeSubagents([{ status: 'running' }, { status: 'done' }, { status: 'running' }])
+  assert.deepStrictEqual(s, { running: 2, total: 3 })
+  assert.deepStrictEqual(summarizeSubagents([]), { running: 0, total: 0 })
+})

@@ -85,4 +85,11 @@ function readSubagent(sessionFile, agentId) {
   return parseSessionFile(file, { timeline: true })
 }
 
-module.exports = { listSubagents, readSubagent, subagentsDirFor }
+/** Reduce a subagent list to a small live summary. */
+function summarizeSubagents(list) {
+  let running = 0
+  for (const s of list) if (s.status === 'running') running++
+  return { running, total: list.length }
+}
+
+module.exports = { listSubagents, readSubagent, subagentsDirFor, summarizeSubagents }
