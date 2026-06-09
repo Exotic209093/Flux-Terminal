@@ -4,6 +4,7 @@ import { estimateCost, formatUSD } from '../lib/pricing'
 import UsageBar from './UsageBar'
 import { useUsage } from '../lib/useUsage'
 import SlashMenu from './SlashMenu'
+import Lightbox from './Lightbox'
 
 function duration(start, end) {
   if (!start || !end) return null
@@ -20,7 +21,8 @@ const KIND_LABEL = {
   text: 'Claude',
   thinking: 'Thinking',
   tool_use: 'Tool',
-  tool_result: 'Result'
+  tool_result: 'Result',
+  image: 'Image'
 }
 
 function friendlyError(err) {
@@ -31,7 +33,7 @@ function friendlyError(err) {
   return err
 }
 
-function TimelineItem({ item }) {
+function TimelineItem({ item, onImage }) {
   const cls = 'tl-item tl-' + item.kind + (item.isError ? ' tl-error' : '')
   return (
     <div className={cls}>
@@ -46,6 +48,17 @@ function TimelineItem({ item }) {
           </div>
         ) : item.kind === 'tool_result' ? (
           <pre className="tl-pre tl-dim">{item.text}</pre>
+        ) : item.kind === 'image' ? (
+          item.truncated ? (
+            <div className="tl-img-omitted">🖼 image omitted (too large)</div>
+          ) : (
+            <img
+              className="tl-img"
+              src={`data:${item.mediaType};base64,${item.data}`}
+              alt="session image"
+              onClick={() => onImage && onImage(item)}
+            />
+          )
         ) : (
           <div className="tl-text">{item.text}</div>
         )}
@@ -63,6 +76,7 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
   const [commands, setCommands] = useState([])
   const [slashIndex, setSlashIndex] = useState(0)
   const [slashDismissed, setSlashDismissed] = useState(false)
+  const [lightbox, setLightbox] = useState(null)
   const prevSession = useRef(null)
   const totalAtSend = useRef(0)
 
@@ -227,7 +241,7 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
       <div className="sv-timeline-wrap">
         <div className="sv-timeline" ref={scrollRef} onScroll={onScroll}>
           {(detail.timeline || []).map((item, i) => (
-            <TimelineItem key={i} item={item} />
+            <TimelineItem key={i} item={item} onImage={setLightbox} />
           ))}
           {pending && (
             <div className="tl-item tl-user tl-pending">
@@ -277,6 +291,7 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
           {sendState === 'running' ? '…' : 'Send'}
         </button>
       </div>
+      <Lightbox item={lightbox} onClose={() => setLightbox(null)} />
     </div>
   )
 }
