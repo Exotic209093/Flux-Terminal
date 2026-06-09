@@ -1,0 +1,92 @@
+# Flux Terminal
+
+A vivid desktop terminal for **living and reliving your Claude Code sessions**.
+
+It is a real, fully-capable terminal (you can run `claude`, PowerShell, git — anything
+you do today) wrapped in a rich layer that makes your Claude Code sessions beautiful and
+explorable: live dashboards, theming, a scrubable session timeline, and cross-session stats.
+
+Built with **Electron + xterm.js + node-pty** (a true ConPTY-backed pseudo-terminal) and a
+**React** UI.
+
+---
+
+## Where the files live (important)
+
+The real project lives at:
+
+```
+C:\Users\james\Projects\Flux Terminal
+```
+
+**not** under OneDrive. There is a shortcut at
+`OneDrive\Documents\My Projects\Flux Terminal.lnk` so you can still open it from there.
+
+Why: OneDrive cannot hold an Electron project. It dereferences `node_modules` junctions
+into real folders and its sync filter corrupts Electron's ~140 MB binary extraction. Keep
+the source here and back it up with git/GitHub instead.
+
+---
+
+## Quick start
+
+```powershell
+npm install          # installs deps; postinstall repairs Electron's binary (see below)
+npm run dev          # launch Flux Terminal with hot reload
+```
+
+Other scripts:
+
+| script | what it does |
+| --- | --- |
+| `npm run dev` | run the app in development (HMR) |
+| `npm run build` | bundle main + preload + renderer into `out/` |
+| `npm run preview` | run the built app |
+| `npm run smoke` | verify `node-pty` works under plain Node |
+| `npm run smoke:electron` | verify `node-pty` works under Electron's ABI |
+| `npm run fix-electron` | re-extract Electron's binary if it goes missing |
+
+### Known environment quirk: Electron's `extract-zip`
+
+On this toolchain (Node 24 + Electron 42 on Windows) Electron's own postinstall uses
+`extract-zip`, which silently stalls after the first zip entry and leaves
+`node_modules/electron/dist` without `electron.exe`. Our `postinstall`
+(`scripts/ensure-electron.cjs`) detects this and re-extracts the cached artifact with a
+reliable extractor. If you ever see "electron.exe missing", run `npm run fix-electron`.
+
+`node-pty` itself needs **no** native rebuild — v1.1+ ships N-API prebuilds that are
+ABI-stable across Node and Electron.
+
+---
+
+## Architecture
+
+```
+src/
+  main/        Electron main process (Node)
+    index.js   window + IPC + PTY bridge
+    pty.js     node-pty spawn helper (ConPTY on Windows)
+  preload/
+    index.js   contextBridge → window.flux  (safe IPC surface)
+  renderer/    React app (the UI)
+    src/
+      App.jsx  the terminal pane (xterm.js)
+scripts/
+  ensure-electron.cjs  Electron binary repair (postinstall)
+  smoke-pty.cjs        node-pty ABI smoke test
+  smoke-window.cjs     full-window screenshot smoke test
+```
+
+---
+
+## Roadmap
+
+- [x] **Milestone 0 — De-risk:** real PTY in an Electron/xterm window; `claude` runs in it.
+- [ ] **Milestone 1 — Vertical slice:** terminal pane + sidebar listing real `~/.claude`
+      sessions, with a defensive JSONL parser (tolerant of half-written lines & unknown
+      event types).
+- [ ] **Milestone 2 — The four pillars:**
+  - [ ] Themes & visual effects
+  - [ ] Live dashboards (tokens / cost / tools, real per-model pricing incl. cache tokens)
+  - [ ] Session timeline & replay
+  - [ ] Cross-session stats & gamification
