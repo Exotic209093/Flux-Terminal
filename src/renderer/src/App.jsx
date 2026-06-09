@@ -5,6 +5,7 @@ import SessionView from './components/SessionView'
 import StatsView from './components/StatsView'
 import SkillsView from './components/SkillsView'
 import LivePanel from './components/LivePanel'
+import SearchOverlay from './components/SearchOverlay'
 import { applyTheme, loadTheme, saveTheme } from './lib/themes'
 import UsageBar from './components/UsageBar'
 import ControlBar from './components/ControlBar'
@@ -38,6 +39,8 @@ export default function App() {
   }, [])
 
   const openFileRef = useRef(null) // the file currently watched, for refresh matching
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [scrollTarget, setScrollTarget] = useState(null) // { idx, key }
 
   const [live, setLive] = useState(null)
   useEffect(() => window.flux.live.onUpdate(setLive), [])
@@ -45,6 +48,18 @@ export default function App() {
   useEffect(() => {
     applyTheme(theme)
   }, [theme])
+
+  // Ctrl+Shift+F opens the search overlay from anywhere in the app
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.ctrlKey && e.shiftKey && e.key === 'F') {
+        e.preventDefault()
+        setSearchOpen((o) => !o)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   const setTheme = useCallback((t) => {
     saveTheme(t)
@@ -115,6 +130,19 @@ export default function App() {
         setLoadingDetail(false)
       })
   }, [])
+
+  const openSearchResult = useCallback(
+    (sessionId, file, msgIdx) => {
+      const sess = sessions.find((s) => s.sessionId === sessionId)
+      if (!sess) return
+      // Open the session (reuses existing openSession logic), then after the
+      // detail loads we need scrollTarget to fire. We set it now with a unique
+      // key so the effect re-triggers even if the same idx is selected twice.
+      openSession(sess)
+      setScrollTarget({ idx: msgIdx, key: Date.now() })
+    },
+    [sessions, openSession]
+  )
 
   const startNewChat = useCallback(() => {
     setSelected(null)
@@ -256,6 +284,7 @@ export default function App() {
               sendError={sendError}
               onSend={newChat ? sendNewChat : sendMessage}
               newChat={newChat}
+              scrollTarget={scrollTarget}
               onPickFolder={async () => {
                 const r = await window.flux.dialog.pickFolder()
                 if (r.ok) setNewChat((nc) => ({ ...(nc || {}), cwd: r.path }))
@@ -274,6 +303,14 @@ export default function App() {
           </div>
         )}
       </main>
+
+      {searchOpen && (
+        <SearchOverlay
+          sessions={sessions}
+          onOpen={openSearchResult}
+          onClose={() => setSearchOpen(false)}
+        />
+      )}
     </div>
   )
 }
