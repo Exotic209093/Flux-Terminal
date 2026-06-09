@@ -77,6 +77,8 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
   const [slashIndex, setSlashIndex] = useState(0)
   const [slashDismissed, setSlashDismissed] = useState(false)
   const [lightbox, setLightbox] = useState(null)
+  const [attachment, setAttachment] = useState(null) // { file, name }
+  const fileInputRef = useRef(null)
   const prevSession = useRef(null)
   const totalAtSend = useRef(0)
 
@@ -153,12 +155,42 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
     scrollToBottom()
   }
 
+  // Read an image File/Blob → base64 → stash to a temp file via main process.
+  const stashImage = (fileObj) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const data = String(reader.result).split(',')[1]
+      window.flux.image.stash({ data, mediaType: fileObj.type || 'image/png' }).then((res) => {
+        if (res && res.ok) setAttachment({ file: res.file, name: fileObj.name || 'pasted image' })
+      })
+    }
+    reader.readAsDataURL(fileObj)
+  }
+
+  const onPaste = (e) => {
+    for (const it of e.clipboardData.items) {
+      if (it.type.startsWith('image/')) {
+        e.preventDefault()
+        const f = it.getAsFile()
+        if (f) stashImage(f)
+        return
+      }
+    }
+  }
+
   const submit = () => {
-    const msg = draft.trim()
-    if (!msg || sendState === 'running') return
+    const text = draft.trim()
+    if ((!text && !attachment) || sendState === 'running') return
+    let msg = text
+    if (attachment) {
+      msg =
+        (text ? text + '\n\n' : '') +
+        '[The user attached an image. Read this file to view it: ' + attachment.file + ']'
+    }
     totalAtSend.current = totalCount
-    setPending(msg)
+    setPending(text || '🖼 (image)')
     setDraft('')
+    setAttachment(null)
     autoFollow.current = true
     setShowJump(false)
     onSend(msg)
@@ -269,16 +301,44 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
       </div>
 
       <div className="sv-composer">
+        <button
+          className="composer-attach"
+          title="Attach image"
+          onClick={() => fileInputRef.current && fileInputRef.current.click()}
+          disabled={sendState === 'running'}
+        >
+          📎
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          style={{ display: 'none' }}
+          onChange={(e) => {
+            const f = e.target.files && e.target.files[0]
+            if (f) stashImage(f)
+            e.target.value = ''
+          }}
+        />
         <div className="composer-mid">
+          {attachment && (
+            <div className="composer-chip">
+              🖼 {attachment.name}
+              <button className="chip-x" onClick={() => setAttachment(null)} title="Remove attachment">
+                ✕
+              </button>
+            </div>
+          )}
           {slashItems.length > 0 && (
             <SlashMenu items={slashItems} selected={slashSel} onPick={completeSlash} />
           )}
           <textarea
             className="composer-input"
-            placeholder="Message this session…  (Enter to send · Shift+Enter for newline · / for commands)"
+            placeholder="Message this session…  (Enter to send · Shift+Enter for newline · / for commands · paste images)"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={onKeyDown}
+            onPaste={onPaste}
             rows={1}
             disabled={sendState === 'running'}
           />
@@ -286,7 +346,7 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
         <button
           className="composer-send"
           onClick={submit}
-          disabled={sendState === 'running' || !draft.trim()}
+          disabled={sendState === 'running' || (!draft.trim() && !attachment)}
         >
           {sendState === 'running' ? '…' : 'Send'}
         </button>
