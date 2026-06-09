@@ -138,15 +138,19 @@ ipcMain.handle('commands:list', (_e, cwd) => {
 // its path in the prompt so the resumed claude can Read it. Best-effort
 // cleanup on quit.
 const stashedImages = []
-ipcMain.handle('image:stash', (_e, { data, mediaType }) => {
+const MAX_STASH_B64 = 20_000_000 // ~15 MB decoded — pastes bigger than this are rejected, not written
+ipcMain.handle('image:stash', async (_e, args) => {
   try {
+    const { data, mediaType } = args || {}
+    if (typeof data !== 'string' || !data) return { ok: false, error: 'no image data' }
+    if (data.length > MAX_STASH_B64) return { ok: false, error: 'image too large to attach (>15 MB)' }
     const m = /^image\/(png|jpe?g|gif|webp)$/.exec(mediaType || '')
     const ext = m ? m[1].replace('jpeg', 'jpg') : 'png'
     const file = path.join(
       os.tmpdir(),
       'flux-img-' + Date.now() + '-' + Math.floor(Math.random() * 1e6) + '.' + ext
     )
-    fs.writeFileSync(file, Buffer.from(data, 'base64'))
+    await fs.promises.writeFile(file, Buffer.from(data, 'base64'))
     stashedImages.push(file)
     return { ok: true, file }
   } catch (err) {
