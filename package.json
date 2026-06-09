@@ -12,7 +12,8 @@
     "postinstall": "node scripts/ensure-electron.cjs",
     "fix-electron": "node scripts/ensure-electron.cjs",
     "smoke": "node scripts/smoke-pty.cjs",
-    "smoke:electron": "electron scripts/smoke-pty.cjs"
+    "smoke:electron": "electron scripts/smoke-pty.cjs",
+    "test": "node --test \"tests/**/*.test.js\""
   },
   "devDependencies": {
     "@electron/rebuild": "^4.0.4",
