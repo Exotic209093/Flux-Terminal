@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useUsage } from '../lib/useUsage'
 
 const WINDOWS = [
   { key: 'fiveHour', label: '5h' },
@@ -27,7 +28,9 @@ function heat(pct) {
 
 // Plan-usage gauges. Compact (topbar) by default; `detailed` adds the
 // per-model weekly windows and reset countdowns (session header).
-export default function UsageBar({ usage, onRefresh, detailed = false }) {
+// Owns its own useUsage subscription so 60s pushes re-render only this bar.
+export default function UsageBar({ detailed = false }) {
+  const { usage, refresh } = useUsage()
   // re-render every 30s so the countdowns tick between fetches
   const [, setTick] = useState(0)
   useEffect(() => {
@@ -35,7 +38,8 @@ export default function UsageBar({ usage, onRefresh, detailed = false }) {
     return () => clearInterval(t)
   }, [])
 
-  if (!usage) return null
+  // Nothing yet, or first fetch still in flight — render nothing, not an error.
+  if (!usage || usage.code === 'INIT') return null
 
   if (!usage.windows) {
     const signIn = usage.code === 'NO_CREDS' || usage.code === 'AUTH'
@@ -44,7 +48,7 @@ export default function UsageBar({ usage, onRefresh, detailed = false }) {
         <span className="usage-err" title={usage.error || ''}>
           {signIn ? '⚠ usage: sign in with claude' : '⚠ usage unavailable'}
         </span>
-        <button className="usage-refresh" onClick={onRefresh} title="Retry">
+        <button className="usage-refresh" onClick={refresh} title="Retry">
           ⟳
         </button>
       </div>
@@ -77,7 +81,7 @@ export default function UsageBar({ usage, onRefresh, detailed = false }) {
           stale
         </span>
       )}
-      <button className="usage-refresh" onClick={onRefresh} title="Refresh usage">
+      <button className="usage-refresh" onClick={refresh} title="Refresh usage">
         ⟳
       </button>
     </div>
