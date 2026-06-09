@@ -40,10 +40,17 @@ export function modelContext(model) {
   return 1_000_000
 }
 
-/** Short, friendly model label: "claude-opus-4-8" -> "Opus 4.8". */
+/**
+ * Short, friendly model label: "claude-opus-4-8" -> "Opus 4.8",
+ * "claude-fable-5[1m]" -> "Fable 5" (single-digit families have no minor;
+ * the optional minor must not swallow dated suffixes like -20251001).
+ */
 export function modelLabel(model) {
   if (!model) return ''
-  const m = /claude-(opus|sonnet|haiku)-(\d+)-(\d+)/i.exec(model)
-  if (m) return `${m[1][0].toUpperCase()}${m[1].slice(1)} ${m[2]}.${m[3]}`
+  const m = /claude-(fable|opus|sonnet|haiku)-(\d+)(?:-(\d{1,2})(?!\d))?/i.exec(model)
+  if (m) {
+    const family = m[1][0].toUpperCase() + m[1].slice(1).toLowerCase()
+    return m[3] ? `${family} ${m[2]}.${m[3]}` : `${family} ${m[2]}`
+  }
   return model
 }

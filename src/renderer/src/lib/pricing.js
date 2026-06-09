@@ -11,11 +11,13 @@
 // NOTE: cache-write cost assumes the API default 5-minute TTL (1.25x). Treat
 // the total as a close estimate, not a billed figure.
 
+const FABLE = { input: 10, output: 50 }
 const OPUS = { input: 5, output: 25 }
 const SONNET = { input: 3, output: 15 }
 const HAIKU = { input: 1, output: 5 }
 
 const BASE_RATES = {
+  'claude-fable-5': FABLE,
   'claude-opus-4-8': OPUS,
   'claude-opus-4-7': OPUS,
   'claude-opus-4-6': OPUS,
@@ -31,7 +33,8 @@ const CACHE_WRITE_MULT = 1.25 // 5-minute TTL default
 
 function ratesFor(model) {
   if (model && BASE_RATES[model]) return BASE_RATES[model]
-  // Fall back by family if an exact id isn't listed.
+  // Fall back by family if an exact id isn't listed (e.g. "claude-fable-5[1m]").
+  if (model && /fable/i.test(model)) return FABLE
   if (model && /opus/i.test(model)) return OPUS
   if (model && /sonnet/i.test(model)) return SONNET
   if (model && /haiku/i.test(model)) return HAIKU
