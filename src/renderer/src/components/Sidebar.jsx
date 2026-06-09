@@ -1,52 +1,59 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { formatTokens, totalTokens, relativeTime, projectName, modelLabel } from '../lib/format'
+import { THEMES } from '../lib/themes'
 
-export default function Sidebar({ selectedId, onSelect }) {
-  const [sessions, setSessions] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+export default function Sidebar({
+  sessions,
+  loading,
+  error,
+  selectedId,
+  onSelect,
+  onShowStats,
+  statsActive,
+  theme,
+  onTheme
+}) {
   const [query, setQuery] = useState('')
 
-  useEffect(() => {
-    let alive = true
-    window.flux.sessions
-      .list({ limit: 500 })
-      .then((res) => {
-        if (!alive) return
-        if (res.ok) setSessions(res.sessions)
-        else setError(res.error || 'failed to load sessions')
-        setLoading(false)
-      })
-      .catch((e) => {
-        if (!alive) return
-        setError(String(e))
-        setLoading(false)
-      })
-    return () => {
-      alive = false
-    }
-  }, [])
-
   const q = query.trim().toLowerCase()
+  const list = sessions || []
   const filtered = q
-    ? sessions.filter(
-        (s) =>
-          (s.title || '').toLowerCase().includes(q) ||
-          (s.cwd || '').toLowerCase().includes(q)
+    ? list.filter(
+        (s) => (s.title || '').toLowerCase().includes(q) || (s.cwd || '').toLowerCase().includes(q)
       )
-    : sessions
+    : list
 
-  const grandTotal = sessions.reduce((acc, s) => acc + totalTokens(s.usage), 0)
+  const grandTotal = list.reduce((acc, s) => acc + totalTokens(s.usage), 0)
 
   return (
     <aside className="sidebar">
       <header className="sidebar-head">
-        <div className="brand">
-          <span className="brand-bolt">⚡</span> Flux Terminal
+        <div className="brand-row">
+          <div className="brand">
+            <span className="brand-bolt">⚡</span> Flux Terminal
+          </div>
+          <select
+            className="theme-select"
+            value={theme}
+            onChange={(e) => onTheme(e.target.value)}
+            title="Theme"
+          >
+            {Object.entries(THEMES).map(([k, t]) => (
+              <option key={k} value={k}>
+                {t.name}
+              </option>
+            ))}
+          </select>
         </div>
         <div className="brand-sub">
-          {sessions.length} sessions · {formatTokens(grandTotal)} tokens
+          {list.length} sessions · {formatTokens(grandTotal)} tokens
         </div>
+        <button
+          className={'stats-btn' + (statsActive ? ' active' : '')}
+          onClick={onShowStats}
+        >
+          📊 Stats &amp; achievements
+        </button>
         <input
           className="search"
           placeholder="Search sessions…"

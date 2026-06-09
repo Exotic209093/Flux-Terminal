@@ -2,22 +2,26 @@ import { useEffect, useRef } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
+import { themeColors } from '../lib/themes'
 
 // The live terminal: a real PTY (node-pty/ConPTY) bridged through window.flux.
-export default function TerminalPane() {
+// `theme` sets the xterm colors at mount (the app chrome restyles live; the
+// terminal canvas adopts a new theme on next mount).
+export default function TerminalPane({ theme }) {
   const hostRef = useRef(null)
 
   useEffect(() => {
+    const c = themeColors(theme)
     const term = new Terminal({
       fontFamily: '"Cascadia Code", "Cascadia Mono", Consolas, monospace',
       fontSize: 14,
       cursorBlink: true,
       allowProposedApi: true,
       theme: {
-        background: '#0b0e14',
-        foreground: '#cdd6f4',
-        cursor: '#89b4fa',
-        selectionBackground: '#2a3045'
+        background: c.background,
+        foreground: c.foreground,
+        cursor: c.cursor,
+        selectionBackground: 'rgba(137,180,250,0.25)'
       }
     })
     const fit = new FitAddon()

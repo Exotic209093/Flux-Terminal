@@ -118,10 +118,50 @@ body,
   padding: 14px 14px 10px;
   border-bottom: 1px solid var(--border);
 }
+.brand-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
 .brand {
   font-size: 15px;
   font-weight: 700;
   letter-spacing: 0.2px;
+}
+.theme-select {
+  font: inherit;
+  font-size: 11px;
+  color: var(--text-dim);
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 6px;
+  cursor: pointer;
+  outline: none;
+}
+.stats-btn {
+  margin-top: 10px;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 7px 10px;
+  cursor: pointer;
+}
+.stats-btn:hover {
+  color: var(--text);
+  background: var(--bg-hover);
+}
+.stats-btn.active {
+  color: var(--text);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent-glow);
 }
 .brand-bolt {
   color: var(--accent);
@@ -445,4 +485,161 @@ body,
 .tl-error .tl-pre {
   color: #f38ba8;
   border-color: #5a2330;
+}
+
+/* ---- Stats view --------------------------------------------------------- */
+.stats-view {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 22px 24px 40px;
+  background: var(--bg);
+}
+.stats-title {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+.stats-cards {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+}
+.big-stat {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+.big-stat-v {
+  font-size: 24px;
+  font-weight: 800;
+}
+.big-stat.accent .big-stat-v {
+  color: var(--accent-2);
+}
+.big-stat-l {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.stats-grid {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.stats-panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+.stats-panel h3 {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-dim);
+  margin-bottom: 12px;
+}
+
+.activity {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 110px;
+}
+.activity-bar {
+  flex: 1;
+  background: linear-gradient(to top, var(--accent), var(--accent-2));
+  border-radius: 2px 2px 0 0;
+  min-height: 2px;
+  opacity: 0.85;
+  transition: opacity 0.1s;
+}
+.activity-bar:hover {
+  opacity: 1;
+}
+
+.achievements {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.ach {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 4px;
+  border-radius: 9px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  opacity: 0.4;
+  filter: grayscale(1);
+  text-align: center;
+}
+.ach.got {
+  opacity: 1;
+  filter: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 12px var(--accent-glow);
+}
+.ach-icon {
+  font-size: 22px;
+}
+.ach-name {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+.ach.got .ach-name {
+  color: var(--text);
+}
+
+.barlist {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.barlist-row {
+  display: grid;
+  grid-template-columns: 120px 1fr 56px;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.barlist-name {
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.barlist-track {
+  height: 8px;
+  background: var(--bg-elev);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.barlist-fill {
+  display: block;
+  height: 100%;
+  background: linear-gradient(to right, var(--accent), var(--accent-2));
+  border-radius: 4px;
+}
+.barlist-v {
+  text-align: right;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 1100px) {
+  .stats-cards {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
 }

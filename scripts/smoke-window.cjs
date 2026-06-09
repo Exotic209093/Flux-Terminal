@@ -99,26 +99,44 @@ app.whenReady().then(async () => {
     win.show()
     win.focus()
 
-    // Wait for the sidebar to populate, then open a session to capture the
-    // replay/timeline view (Milestone 2).
+    // Wait for the sidebar to populate, then open the Stats dashboard.
     await wait(2500)
+    const target = process.env.FLUX_SMOKE_VIEW || 'stats' // 'stats' | 'session'
     const clicked = await win.webContents.executeJavaScript(`(() => {
-      const card = document.querySelector('.session-card')
-      if (!card) return 'no-card'
-      card.click()
-      return (card.querySelector('.sc-title') || {}).textContent || 'clicked'
+      const sel = ${JSON.stringify(target === 'session' ? '.session-card' : '.stats-btn')}
+      const el = document.querySelector(sel)
+      if (!el) return 'no-target'
+      el.click()
+      return 'clicked ' + sel
     })()`)
-    log('opened session: ' + clicked)
-    await wait(2200) // detail parse + render
+    log('clicked: ' + clicked)
+    await wait(800)
+
+    // Optionally switch theme to verify live restyling.
+    if (process.env.FLUX_SMOKE_THEME) {
+      const t = await win.webContents.executeJavaScript(`(() => {
+        const sel = document.querySelector('.theme-select')
+        if (!sel) return 'no-select'
+        sel.value = ${JSON.stringify(process.env.FLUX_SMOKE_THEME)}
+        sel.dispatchEvent(new Event('change', { bubbles: true }))
+        return document.documentElement.getAttribute('data-theme')
+      })()`)
+      log('theme switched to: ' + t)
+    }
+    await wait(1400) // parse + render
 
     const dom = await win.webContents.executeJavaScript(`(() => {
       return JSON.stringify({
-        view: document.querySelector('.session-view') ? 'session' : 'terminal',
+        statsView: !!document.querySelector('.stats-view'),
+        sessionView: !!document.querySelector('.session-view'),
+        achievements: document.querySelectorAll('.ach').length,
+        gotAchievements: document.querySelectorAll('.ach.got').length,
+        bigStats: document.querySelectorAll('.big-stat').length,
         timelineItems: document.querySelectorAll('.tl-item').length,
-        cost: (document.querySelector('.sv-stat.accent .sv-stat-v')||{}).textContent || null
+        theme: document.documentElement.getAttribute('data-theme')
       })
     })()`)
-    log('session view: ' + dom)
+    log('view check: ' + dom)
 
     log('capturing page')
     const img = await win.webContents.capturePage()
