@@ -3,6 +3,7 @@ import Sidebar from './components/Sidebar'
 import TerminalPane from './components/TerminalPane'
 import SessionView from './components/SessionView'
 import StatsView from './components/StatsView'
+import LivePanel from './components/LivePanel'
 import { applyTheme, loadTheme, saveTheme } from './lib/themes'
 
 // Milestone 2: live terminal + session replay + cross-session stats + themes.
@@ -107,6 +108,7 @@ export default function App() {
 
         {/* Terminal stays mounted; just hidden when not active. */}
         <div className="pane-slot" style={{ display: view === 'terminal' ? 'flex' : 'none' }}>
+          <LivePanel />
           <TerminalPane theme={theme} />
         </div>
         {view === 'session' && (

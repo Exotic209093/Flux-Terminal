@@ -19,7 +19,8 @@ export default defineConfig({
           index: resolve('src/main/index.js'),
           pty: resolve('src/main/pty.js'),
           sessions: resolve('src/main/sessions.js'),
-          parser: resolve('src/main/parser.js')
+          parser: resolve('src/main/parser.js'),
+          live: resolve('src/main/live.js')
         },
         output: {
           entryFileNames: '[name].js'

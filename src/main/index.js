@@ -3,9 +3,11 @@ const path = require('path')
 const { createPty } = require('./pty')
 const { listSessions } = require('./sessions')
 const { parseSessionFile } = require('./parser')
+const { LiveTracker } = require('./live')
 
 let mainWindow = null
 let ptyProc = null
+let liveTracker = null
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -87,9 +89,25 @@ ipcMain.handle('session:read', (_e, file) => {
   }
 })
 
+// ---- Live session tracking ------------------------------------------------
+// The renderer launches `claude --session-id <uuid>` in the PTY and tells us the
+// uuid; we tail exactly that file and stream snapshots back via 'live:update'.
+ipcMain.on('live:track', (_e, sessionId) => {
+  if (liveTracker && typeof sessionId === 'string') liveTracker.track(sessionId)
+})
+ipcMain.on('live:stop', () => {
+  if (liveTracker) liveTracker.stop()
+})
+
 // ---- App lifecycle --------------------------------------------------------
 app.whenReady().then(() => {
   createWindow()
+
+  liveTracker = new LiveTracker((snapshot) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('live:update', snapshot)
+    }
+  })
 
   // Debug screenshot of the REAL app (real window + real IPC handlers). Set:
   //   FLUX_SMOKE_SHOT=<path>     capture once after load, then quit (no-op if unset)
@@ -137,5 +155,6 @@ app.on('window-all-closed', () => {
       /* ignore */
     }
   }
+  if (liveTracker) liveTracker.dispose()
   if (process.platform !== 'darwin') app.quit()
 })

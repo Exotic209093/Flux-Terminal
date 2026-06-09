@@ -92,6 +92,116 @@ body,
   padding: 8px 8px 8px 10px;
   background: var(--bg);
 }
+
+/* ---- Live panel --------------------------------------------------------- */
+.live-panel {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 7px 14px;
+  font-size: 12px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.live-panel.live {
+  background: linear-gradient(90deg, var(--bg-elev), var(--bg-panel));
+  border-bottom-color: var(--accent);
+  box-shadow: inset 0 -1px 0 var(--accent-glow);
+}
+.live-hint,
+.live-note {
+  color: var(--text-dim);
+}
+.live-note {
+  font-size: 11px;
+  color: var(--text-faint);
+}
+.live-launch {
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--bg);
+  background: var(--accent);
+  border: none;
+  border-radius: 7px;
+  padding: 5px 12px;
+  cursor: pointer;
+  box-shadow: 0 0 14px var(--accent-glow);
+}
+.live-launch:hover {
+  filter: brightness(1.08);
+}
+.live-stop {
+  font: inherit;
+  font-size: 11px;
+  color: var(--text-dim);
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 9px;
+  cursor: pointer;
+}
+.live-stop:hover {
+  color: var(--accent-2);
+  border-color: var(--accent-2);
+}
+.live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  color: var(--accent);
+}
+.live-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+  animation: live-pulse 1.4s ease-in-out infinite;
+}
+@keyframes live-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.7);
+  }
+}
+.live-model {
+  color: var(--accent);
+  font-weight: 600;
+}
+.live-metric {
+  color: var(--text-dim);
+}
+.live-metric b {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.live-metric.accent b {
+  color: var(--accent-2);
+}
+.live-tool {
+  color: var(--accent);
+  font-family: 'Cascadia Code', Consolas, monospace;
+  font-size: 11px;
+}
+.live-spacer {
+  flex: 1;
+}
+.live-id {
+  color: var(--text-faint);
+  font-family: 'Cascadia Code', Consolas, monospace;
+  font-size: 11px;
+}
 .xterm,
 .xterm .xterm-viewport,
 .xterm .xterm-screen {

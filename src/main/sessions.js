@@ -96,4 +96,32 @@ function listSessions({ limit = 200 } = {}) {
   })
 }
 
-module.exports = { projectsDir, listSessionFiles, listSessions, approxDecodeProject }
+/**
+ * Find the full path to a session file by its id (`<sessionId>.jsonl`), searching
+ * every project dir. Used to exactly track a `claude --session-id <uuid>` launch.
+ * Returns the path or null (the file may not exist yet right after launch).
+ */
+function findSessionFileById(sessionId) {
+  if (!sessionId) return null
+  const base = projectsDir()
+  const target = sessionId + '.jsonl'
+  let projectDirs = []
+  try {
+    projectDirs = fs.readdirSync(base, { withFileTypes: true }).filter((d) => d.isDirectory())
+  } catch {
+    return null
+  }
+  for (const dir of projectDirs) {
+    const candidate = path.join(base, dir.name, target)
+    if (fs.existsSync(candidate)) return candidate
+  }
+  return null
+}
+
+module.exports = {
+  projectsDir,
+  listSessionFiles,
+  listSessions,
+  approxDecodeProject,
+  findSessionFileById
+}

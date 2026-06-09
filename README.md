@@ -91,8 +91,13 @@ scripts/
   - [x] Session timeline & replay
   - [x] Cross-session stats & gamification (activity chart, achievements, streaks)
 
+- [x] **Live session tracking:** a `▶ Launch tracked claude` action runs
+      `claude --session-id <uuid>` in the terminal and follows *exactly* that session
+      live — tokens, cost, cache %, tools, message count update as you work (incremental
+      byte-offset tail; exact session-id correlation, no heuristic guessing).
+
 ### Possible next steps
-- Live-tail the running session's JSONL into the dashboard while you work
+- Auto-detect / attach to a `claude` you started manually (not via the button)
 - Timeline scrubber / playback controls; collapse long thinking blocks
 - Render images embedded in tool results; syntax-highlight code in the replay
 - Package installers (`electron-builder`) for a double-click app
