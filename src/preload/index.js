@@ -70,5 +70,11 @@ contextBridge.exposeInMainWorld('flux', {
   },
   dialog: {
     pickFolder: () => ipcRenderer.invoke('dialog:pickFolder')
+  },
+  prompts: {
+    list: () => ipcRenderer.invoke('prompts:list'),
+    save: (data) => ipcRenderer.invoke('prompts:save', data),
+    delete: (id) => ipcRenderer.invoke('prompts:delete', id),
+    used: (id) => ipcRenderer.invoke('prompts:used', id)
   }
 })

@@ -11,11 +11,15 @@ const { listSkills, installBundledSkill } = require('./skills')
 const { UsagePoller } = require('./usage')
 const { listCommands } = require('./commands')
 const { listSubagents, readSubagent } = require('./subagents')
+const { PromptStore } = require('./prompts')
 
 let mainWindow = null
 let ptyProc = null
 let liveTracker = null
 let usagePoller = null
+
+// Prompt library — one shared store for the app lifetime
+const promptStore = new PromptStore()
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -148,6 +152,38 @@ ipcMain.handle('commands:list', (_e, cwd) => {
     return { ok: true, commands: listCommands(cwd) }
   } catch (err) {
     return { ok: false, error: err.message, commands: [] }
+  }
+})
+
+// ---- Prompt library ---------------------------------------------------------
+ipcMain.handle('prompts:list', () => {
+  try {
+    return { ok: true, prompts: promptStore.list() }
+  } catch (err) {
+    return { ok: false, error: err.message, prompts: [] }
+  }
+})
+ipcMain.handle('prompts:save', (_e, data) => {
+  try {
+    return { ok: true, prompt: promptStore.save(data) }
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+})
+ipcMain.handle('prompts:delete', (_e, id) => {
+  try {
+    promptStore.delete(id)
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+})
+ipcMain.handle('prompts:used', (_e, id) => {
+  try {
+    promptStore.used(id)
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: err.message }
   }
 })
 
@@ -380,6 +416,7 @@ ipcMain.on('live:stop', () => {
 // ---- App lifecycle --------------------------------------------------------
 app.whenReady().then(() => {
   createWindow()
+  promptStore.seed()
 
   liveTracker = new LiveTracker((snapshot) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
