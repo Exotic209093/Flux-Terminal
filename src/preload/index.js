@@ -21,6 +21,8 @@ contextBridge.exposeInMainWorld('flux', {
     list: (opts) => ipcRenderer.invoke('sessions:list', opts),
     read: (file) => ipcRenderer.invoke('session:read', file),
     send: (args) => ipcRenderer.invoke('session:send', args),
+    newChat: (args) => ipcRenderer.invoke('session:new', args),
+    interrupt: () => ipcRenderer.invoke('session:interrupt'),
     watch: (file) => ipcRenderer.send('session:watch', file),
     unwatch: () => ipcRenderer.send('session:unwatch'),
     onRefresh: (cb) => {
@@ -61,5 +63,8 @@ contextBridge.exposeInMainWorld('flux', {
   },
   image: {
     stash: (args) => ipcRenderer.invoke('image:stash', args)
+  },
+  dialog: {
+    pickFolder: () => ipcRenderer.invoke('dialog:pickFolder')
   }
 })

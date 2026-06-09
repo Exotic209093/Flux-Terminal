@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron')
+const { app, BrowserWindow, ipcMain, dialog } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const os = require('os')
@@ -199,7 +199,7 @@ ipcMain.on('session:unwatch', () => {
 // reply is appended to the session's JSONL — the watcher above surfaces it.
 let sendChild = null
 let lastSentAt = 0
-ipcMain.handle('session:send', (_e, { sessionId, cwd, message }) => {
+ipcMain.handle('session:send', (_e, { sessionId, cwd, message, model }) => {
   if (!sessionId || !message) return { ok: false, error: 'missing sessionId or message' }
 
   // Guard: can't resume a session that's currently live (being written by another
@@ -226,7 +226,9 @@ ipcMain.handle('session:send', (_e, { sessionId, cwd, message }) => {
   }
 
   try {
-    const child = spawn('claude', ['--resume', sessionId, '-p'], {
+    const args = ['--resume', sessionId, '-p']
+    if (model) args.push('--model', model)
+    const child = spawn('claude', args, {
       cwd: cwd || os.homedir(),
       shell: true,
       windowsHide: true
@@ -266,6 +268,75 @@ ipcMain.handle('session:send', (_e, { sessionId, cwd, message }) => {
   } catch (err) {
     return { ok: false, error: err.message }
   }
+})
+
+// ---- New chat -------------------------------------------------------------
+// Start a fresh session in the rich UI: generate a uuid, run
+// `claude -p --session-id <uuid> --model <m>` from the chosen cwd, prompt on
+// stdin. Afterwards <uuid>.jsonl exists and is a normal resumable session.
+const { randomUUID } = require('crypto')
+ipcMain.handle('session:new', (_e, { message, cwd, model }) => {
+  if (!message) return { ok: false, error: 'missing message' }
+  const dir = cwd || os.homedir()
+  if (!fs.existsSync(dir)) return { ok: false, error: 'Working folder does not exist:\n' + dir }
+  const sessionId = randomUUID()
+  try {
+    const args = ['-p', '--session-id', sessionId]
+    if (model) args.push('--model', model)
+    const child = spawn('claude', args, { cwd: dir, shell: true, windowsHide: true })
+    sendChild = child
+    lastSentAt = Date.now()
+    emit('session:sendstatus', { sessionId, state: 'running' })
+
+    let stderr = ''
+    let settled = false
+    const finish = (state, error) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      emit('session:sendstatus', { sessionId, state, error: error || null })
+      sendChild = null
+    }
+    const timer = setTimeout(() => {
+      try {
+        child.kill()
+      } catch {
+        /* ignore */
+      }
+      finish('error', "claude didn't respond in time.")
+    }, 150000)
+    child.stderr.on('data', (d) => {
+      stderr += d.toString()
+    })
+    child.on('error', (err) => finish('error', err.message))
+    child.on('exit', (code) =>
+      finish(code === 0 ? 'done' : 'error', code === 0 ? null : stderr.slice(0, 400) || 'claude exited ' + code)
+    )
+    child.stdin.write(message)
+    child.stdin.end()
+    return { ok: true, sessionId, cwd: dir }
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+})
+
+// ---- Interrupt ------------------------------------------------------------
+ipcMain.handle('session:interrupt', () => {
+  if (!sendChild) return { ok: false, error: 'nothing running' }
+  try {
+    sendChild.kill()
+  } catch {
+    /* already gone */
+  }
+  emit('session:sendstatus', { state: 'interrupted', error: null })
+  return { ok: true }
+})
+
+// ---- Folder picker (new-chat working dir) ---------------------------------
+ipcMain.handle('dialog:pickFolder', async () => {
+  const res = await dialog.showOpenDialog(mainWindow, { properties: ['openDirectory'] })
+  if (res.canceled || !res.filePaths[0]) return { ok: false }
+  return { ok: true, path: res.filePaths[0] }
 })
 
 // ---- Live session tracking ------------------------------------------------
