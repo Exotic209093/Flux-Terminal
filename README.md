@@ -42,6 +42,7 @@ Other scripts:
 | `npm run dev` | run the app in development (HMR) |
 | `npm run build` | bundle main + preload + renderer into `out/` |
 | `npm run preview` | run the built app |
+| `npm test` | run unit tests (Node built-in test runner) |
 | `npm run smoke` | verify `node-pty` works under plain Node |
 | `npm run smoke:electron` | verify `node-pty` works under Electron's ABI |
 | `npm run fix-electron` | re-extract Electron's binary if it goes missing |
@@ -107,8 +108,17 @@ scripts/
       `~/.claude/skills` with one click. (Resume also now runs from a session's *creation*
       cwd, so messaging works even if the session changed directories.)
 
+- [x] **Plan usage:** live 5-hour and weekly limit gauges (the same data as `/usage`)
+      in the topbar and at the top of every session, with reset countdowns.
+
+- [x] **Slash commands:** `/`-triggered autocomplete in the session composer
+      (builtins + your custom `~/.claude/commands` + project commands).
+
+- [x] **Images:** session images render inline with a click-to-zoom lightbox;
+      paste or attach an image in the composer to send it.
+
 ### Possible next steps
 - Auto-detect / attach to a `claude` you started manually (not via the button)
 - Timeline scrubber / playback controls; collapse long thinking blocks
-- Render images embedded in tool results; syntax-highlight code in the replay
+- Syntax-highlight code in the replay
 - Package installers (`electron-builder`) for a double-click app

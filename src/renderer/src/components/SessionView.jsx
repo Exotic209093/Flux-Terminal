@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { formatTokens, totalTokens, modelLabel, modelContext, projectName } from '../lib/format'
 import { estimateCost, formatUSD } from '../lib/pricing'
 import UsageBar from './UsageBar'
-import { useUsage } from '../lib/useUsage'
 import SlashMenu from './SlashMenu'
 import Lightbox from './Lightbox'
 
@@ -81,8 +80,6 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
   const fileInputRef = useRef(null)
   const prevSession = useRef(null)
   const totalAtSend = useRef(0)
-
-  const { usage: planUsage, refresh: refreshPlanUsage } = useUsage()
 
   const timelineLen = detail && detail.timeline ? detail.timeline.length : 0
   const sessionId = detail && detail.sessionId
@@ -260,7 +257,7 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
           </div>
         </div>
 
-        <UsageBar usage={planUsage} onRefresh={refreshPlanUsage} detailed />
+        <UsageBar detailed />
 
         <div className="sv-stats">
           <Stat label="Messages" value={detail.counts.total} />
