@@ -11,6 +11,7 @@ const { listSkills, installBundledSkill } = require('./skills')
 const { UsagePoller } = require('./usage')
 const { listCommands } = require('./commands')
 const { listSubagents, readSubagent } = require('./subagents')
+const { search, getCacheDir } = require('./search')
 
 let mainWindow = null
 let ptyProc = null
@@ -130,6 +131,20 @@ ipcMain.handle('subagent:read', (_e, { file, agentId }) => {
     return { ok: true, detail: readSubagent(file, agentId) }
   } catch (err) {
     return { ok: false, error: err.message }
+  }
+})
+
+// ---- Cross-session search ---------------------------------------------------
+ipcMain.handle('search:query', (_e, { query }) => {
+  try {
+    const { listSessionFiles } = require('./sessions')
+    const sessions = listSessionFiles()
+    const hits = search(query, sessions, {
+      onProgress: (p) => emit('search:progress', p)
+    })
+    return { ok: true, hits }
+  } catch (err) {
+    return { ok: false, error: err.message, hits: [] }
   }
 })
 
