@@ -8,10 +8,12 @@ const { listSessions, findSessionFileById } = require('./sessions')
 const { parseSessionFile } = require('./parser')
 const { LiveTracker } = require('./live')
 const { listSkills, installBundledSkill } = require('./skills')
+const { UsagePoller } = require('./usage')
 
 let mainWindow = null
 let ptyProc = null
 let liveTracker = null
+let usagePoller = null
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -112,6 +114,14 @@ ipcMain.handle('skills:install', (_e, name) => {
     return { ok: false, error: err.message }
   }
 })
+
+// ---- Plan usage (5h + weekly windows) ---------------------------------------
+ipcMain.handle('usage:get', () =>
+  usagePoller ? usagePoller.snapshot() : { ok: false, code: 'INIT', error: 'starting', windows: null }
+)
+ipcMain.handle('usage:refresh', () =>
+  usagePoller ? usagePoller.refresh() : { ok: false, code: 'INIT', error: 'starting', windows: null }
+)
 
 // ---- Session watch (re-parse on change) -----------------------------------
 let watchFile = null
@@ -242,6 +252,9 @@ app.whenReady().then(() => {
     }
   })
 
+  usagePoller = new UsagePoller((snap) => emit('usage:update', snap))
+  usagePoller.start()
+
   // Debug screenshot of the REAL app (real window + real IPC handlers). Set:
   //   FLUX_SMOKE_SHOT=<path>     capture once after load, then quit (no-op if unset)
   //   FLUX_SMOKE_VIEW=stats|session   click into that view before capturing
@@ -293,6 +306,7 @@ app.on('window-all-closed', () => {
     }
   }
   if (liveTracker) liveTracker.dispose()
+  if (usagePoller) usagePoller.stop()
   if (watchTimer) clearInterval(watchTimer)
   if (sendChild) {
     try {

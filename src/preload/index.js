@@ -46,5 +46,14 @@ contextBridge.exposeInMainWorld('flux', {
       ipcRenderer.on('live:update', listener)
       return () => ipcRenderer.removeListener('live:update', listener)
     }
+  },
+  usage: {
+    get: () => ipcRenderer.invoke('usage:get'),
+    refresh: () => ipcRenderer.invoke('usage:refresh'),
+    onUpdate: (cb) => {
+      const listener = (_e, snap) => cb(snap)
+      ipcRenderer.on('usage:update', listener)
+      return () => ipcRenderer.removeListener('usage:update', listener)
+    }
   }
 })
