@@ -73,7 +73,8 @@ async function fetchUsage(opts = {}) {
         Authorization: 'Bearer ' + token,
         'anthropic-beta': OAUTH_BETA,
         'Content-Type': 'application/json'
-      }
+      },
+      signal: AbortSignal.timeout(opts.timeoutMs || 30000)
     })
   } catch (err) {
     return { ok: false, code: 'NETWORK', error: err.message }
@@ -107,28 +108,43 @@ class UsagePoller {
     this.timer = null
     this.lastGood = null
     this.lastEmit = null
+    this.stopped = false
+    this.inflight = null
   }
 
   start() {
     if (this.timer) return
+    this.stopped = false
     this.refresh()
-    this.timer = setInterval(() => this.refresh(), this.intervalMs)
+    // Safe: refresh() never rejects.
+    this.timer = setInterval(() => { this.refresh() }, this.intervalMs)
   }
 
   stop() {
     if (this.timer) clearInterval(this.timer)
     this.timer = null
+    this.stopped = true
   }
 
   snapshot() {
-    return this.lastEmit || { ok: false, code: 'INIT', error: 'usage not fetched yet', windows: null }
+    return this.lastEmit || { ok: false, code: 'INIT', error: 'usage not fetched yet', windows: null, stale: false, fetchedAt: null }
   }
 
-  async refresh() {
-    const result = await this.fetchUsage()
+  refresh() {
+    if (this.inflight) return this.inflight
+    this.inflight = this._refresh().finally(() => { this.inflight = null })
+    return this.inflight
+  }
+
+  async _refresh() {
+    let result
+    try {
+      result = await this.fetchUsage()
+    } catch (err) {
+      result = { ok: false, code: 'INTERNAL', error: err.message }
+    }
     let emitted
     if (result.ok) {
-      this.lastGood = result
       emitted = result
     } else {
       emitted = {
@@ -138,8 +154,14 @@ class UsagePoller {
         fetchedAt: this.lastGood ? this.lastGood.fetchedAt : null
       }
     }
+    if (this.stopped) return emitted
+    if (result.ok) this.lastGood = result
     this.lastEmit = emitted
-    this.onUpdate(emitted)
+    try {
+      this.onUpdate(emitted)
+    } catch {
+      // Consumer may be a destroyed window; never let emit errors propagate.
+    }
     return emitted
   }
 }

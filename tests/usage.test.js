@@ -4,7 +4,7 @@ const fs = require('fs')
 const os = require('os')
 const path = require('path')
 
-const { normalizeUsage, readAccessToken, fetchUsage } = require('../src/main/usage')
+const { normalizeUsage, readAccessToken, fetchUsage, UsagePoller } = require('../src/main/usage')
 
 test('normalizeUsage maps all four windows', () => {
   const out = normalizeUsage({
@@ -73,6 +73,7 @@ test('fetchUsage: happy path normalizes and stamps fetchedAt', async () => {
       assert.strictEqual(url, 'https://api.anthropic.com/api/oauth/usage')
       assert.strictEqual(opts.headers.Authorization, 'Bearer t')
       assert.strictEqual(opts.headers['anthropic-beta'], 'oauth-2025-04-20')
+      assert.ok(opts.signal instanceof AbortSignal)
       return {
         ok: true,
         status: 200,
@@ -95,8 +96,6 @@ test('fetchUsage: unrecognized body -> SHAPE', async () => {
   })
   assert.strictEqual(res.code, 'SHAPE')
 })
-
-const { UsagePoller } = require('../src/main/usage')
 
 test('UsagePoller: keeps last good windows and flags stale on failure', async () => {
   const results = [
@@ -131,4 +130,63 @@ test('UsagePoller: failure with no prior success has null windows, stale false',
   await poller.refresh()
   assert.strictEqual(emitted[0].stale, false)
   assert.strictEqual(emitted[0].windows, null)
+})
+
+test('fetchUsage: 500 -> HTTP_500', async () => {
+  const res = await fetchUsage({
+    getToken: () => 't',
+    fetchImpl: async () => ({ ok: false, status: 500 })
+  })
+  assert.strictEqual(res.code, 'HTTP_500')
+})
+
+test('fetchUsage: json() throw -> PARSE', async () => {
+  const res = await fetchUsage({
+    getToken: () => 't',
+    fetchImpl: async () => ({ ok: true, status: 200, json: async () => { throw new Error('bad body') } })
+  })
+  assert.strictEqual(res.code, 'PARSE')
+})
+
+test('UsagePoller: rejecting fetchUsage resolves refresh and emits INTERNAL', async () => {
+  const emitted = []
+  const poller = new UsagePoller((s) => emitted.push(s), {
+    fetchUsage: async () => { throw new Error('boom') }
+  })
+  const result = await poller.refresh()
+  assert.strictEqual(result.ok, false)
+  assert.strictEqual(result.code, 'INTERNAL')
+  assert.strictEqual(emitted.length, 1)
+  assert.strictEqual(emitted[0].ok, false)
+  assert.strictEqual(emitted[0].code, 'INTERNAL')
+})
+
+test('UsagePoller: stop() during in-flight refresh suppresses emit', async () => {
+  let resolveFetch
+  const deferred = new Promise((resolve) => { resolveFetch = resolve })
+  const emitted = []
+  const poller = new UsagePoller((s) => emitted.push(s), {
+    fetchUsage: () => deferred
+  })
+  const refreshPromise = poller.refresh()
+  poller.stop()
+  resolveFetch({ ok: true, windows: { fiveHour: { utilization: 1, resetsAt: null }, sevenDay: null, sevenDayOpus: null, sevenDaySonnet: null }, fetchedAt: 1 })
+  await refreshPromise
+  assert.strictEqual(emitted.length, 0)
+  assert.strictEqual(poller.snapshot().code, 'INIT')
+})
+
+test('UsagePoller: concurrent refresh() calls share one fetch', async () => {
+  let calls = 0
+  const poller = new UsagePoller(() => {}, {
+    fetchUsage: async () => {
+      calls++
+      await new Promise((resolve) => setImmediate(resolve))
+      return { ok: true, windows: { fiveHour: { utilization: 1, resetsAt: null }, sevenDay: null, sevenDayOpus: null, sevenDaySonnet: null }, fetchedAt: 1 }
+    }
+  })
+  const p1 = poller.refresh()
+  const p2 = poller.refresh()
+  await Promise.all([p1, p2])
+  assert.strictEqual(calls, 1)
 })
