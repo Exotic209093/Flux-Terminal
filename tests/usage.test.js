@@ -4,7 +4,7 @@ const fs = require('fs')
 const os = require('os')
 const path = require('path')
 
-const { normalizeUsage, readAccessToken, fetchUsage, UsagePoller } = require('../src/main/usage')
+const { normalizeUsage, readAccessToken, fetchUsage, UsagePoller, RATE_LIMIT_BACKOFF_MS } = require('../src/main/usage')
 
 test('normalizeUsage maps all four windows', () => {
   const out = normalizeUsage({
@@ -189,4 +189,107 @@ test('UsagePoller: concurrent refresh() calls share one fetch', async () => {
   const p2 = poller.refresh()
   await Promise.all([p1, p2])
   assert.strictEqual(calls, 1)
+})
+
+test('fetchUsage: 429 -> HTTP_429 with parsed retry-after', async () => {
+  const res = await fetchUsage({
+    getToken: () => 't',
+    fetchImpl: async () => ({
+      ok: false,
+      status: 429,
+      headers: { get: (k) => (k.toLowerCase() === 'retry-after' ? '120' : null) }
+    })
+  })
+  assert.strictEqual(res.code, 'HTTP_429')
+  assert.strictEqual(res.retryAfterMs, 120000)
+})
+
+test('fetchUsage: 429 with missing or zero retry-after -> retryAfterMs null', async () => {
+  const zero = await fetchUsage({
+    getToken: () => 't',
+    fetchImpl: async () => ({
+      ok: false,
+      status: 429,
+      headers: { get: () => '0' }
+    })
+  })
+  assert.strictEqual(zero.code, 'HTTP_429')
+  assert.strictEqual(zero.retryAfterMs, null)
+
+  const none = await fetchUsage({
+    getToken: () => 't',
+    fetchImpl: async () => ({ ok: false, status: 429 })
+  })
+  assert.strictEqual(none.code, 'HTTP_429')
+  assert.strictEqual(none.retryAfterMs, null)
+})
+
+test('UsagePoller: 429 backs off (skips fetch until window passes)', async () => {
+  let t = 1_000_000
+  let calls = 0
+  const poller = new UsagePoller(() => {}, {
+    now: () => t,
+    fetchUsage: async () => {
+      calls++
+      return { ok: false, code: 'HTTP_429', error: 'rl', retryAfterMs: 120000 }
+    }
+  })
+  await poller.refresh()
+  assert.strictEqual(calls, 1)
+  await poller.refresh() // inside backoff window — must not fetch
+  assert.strictEqual(calls, 1)
+  t += 120001
+  await poller.refresh() // window passed — fetches again
+  assert.strictEqual(calls, 2)
+})
+
+test('UsagePoller: forced refresh bypasses 429 backoff', async () => {
+  let t = 1_000_000
+  let calls = 0
+  const poller = new UsagePoller(() => {}, {
+    now: () => t,
+    fetchUsage: async () => {
+      calls++
+      return { ok: false, code: 'HTTP_429', error: 'rl', retryAfterMs: 120000 }
+    }
+  })
+  await poller.refresh()
+  await poller.refresh(true) // manual ⟳ click
+  assert.strictEqual(calls, 2)
+})
+
+test('UsagePoller: 429 without retry-after uses default backoff; success clears it', async () => {
+  let t = 1_000_000
+  let calls = 0
+  const results = [
+    { ok: false, code: 'HTTP_429', error: 'rl', retryAfterMs: null },
+    { ok: true, windows: { fiveHour: { utilization: 1, resetsAt: null }, sevenDay: null, sevenDayOpus: null, sevenDaySonnet: null }, fetchedAt: 1 }
+  ]
+  const poller = new UsagePoller(() => {}, {
+    now: () => t,
+    fetchUsage: async () => {
+      calls++
+      return results.shift() || { ok: true, windows: { fiveHour: { utilization: 2, resetsAt: null }, sevenDay: null, sevenDayOpus: null, sevenDaySonnet: null }, fetchedAt: 2 }
+    }
+  })
+  await poller.refresh() // 429 -> default backoff
+  await poller.refresh()
+  assert.strictEqual(calls, 1)
+  t += RATE_LIMIT_BACKOFF_MS + 1
+  await poller.refresh() // succeeds, clears backoff
+  assert.strictEqual(calls, 2)
+  await poller.refresh() // no backoff anymore — fetches freely
+  assert.strictEqual(calls, 3)
+})
+
+test('UsagePoller: 429 emit carries retryAt for the UI', async () => {
+  let t = 1_000_000
+  const emitted = []
+  const poller = new UsagePoller((s) => emitted.push(s), {
+    now: () => t,
+    fetchUsage: async () => ({ ok: false, code: 'HTTP_429', error: 'rl', retryAfterMs: 60000 })
+  })
+  await poller.refresh()
+  assert.strictEqual(emitted[0].code, 'HTTP_429')
+  assert.strictEqual(emitted[0].retryAt, 1_000_000 + 60000)
 })

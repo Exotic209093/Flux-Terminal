@@ -82,6 +82,18 @@ async function fetchUsage(opts = {}) {
   if (res.status === 401 || res.status === 403) {
     return { ok: false, code: 'AUTH', error: 'Login expired — run `claude` once to refresh, then retry.' }
   }
+  if (res.status === 429) {
+    // The endpoint rate-limits bursts (e.g. many app launches). retry-after is
+    // often 0/absent here, so the poller falls back to its own backoff.
+    let retryAfterMs = null
+    try {
+      const ra = res.headers && typeof res.headers.get === 'function' ? parseInt(res.headers.get('retry-after'), 10) : NaN
+      if (Number.isFinite(ra) && ra > 0) retryAfterMs = ra * 1000
+    } catch {
+      /* header shape varies in tests */
+    }
+    return { ok: false, code: 'HTTP_429', error: 'Usage endpoint rate-limited (too many requests)', retryAfterMs }
+  }
   if (!res.ok) {
     return { ok: false, code: 'HTTP_' + res.status, error: 'Usage endpoint returned ' + res.status }
   }
@@ -96,6 +108,10 @@ async function fetchUsage(opts = {}) {
   return { ok: true, windows, fetchedAt: Date.now() }
 }
 
+// When rate-limited without a usable retry-after, wait this long before the
+// next automatic attempt (polling through a hot limiter just prolongs it).
+const RATE_LIMIT_BACKOFF_MS = 5 * 60_000
+
 /**
  * Polls fetchUsage() on an interval, retaining the last good snapshot so the
  * UI keeps showing gauges (flagged stale) through transient failures.
@@ -105,11 +121,13 @@ class UsagePoller {
     this.onUpdate = onUpdate
     this.intervalMs = opts.intervalMs || 60000
     this.fetchUsage = opts.fetchUsage || fetchUsage
+    this.now = opts.now || Date.now
     this.timer = null
     this.lastGood = null
     this.lastEmit = null
     this.stopped = false
     this.inflight = null
+    this.backoffUntil = 0
   }
 
   start() {
@@ -130,13 +148,17 @@ class UsagePoller {
     return this.lastEmit || { ok: false, code: 'INIT', error: 'usage not fetched yet', windows: null, stale: false, fetchedAt: null }
   }
 
-  refresh() {
+  /** force=true (manual ⟳ click) bypasses the rate-limit backoff. */
+  refresh(force = false) {
     if (this.inflight) return this.inflight
-    this.inflight = this._refresh().finally(() => { this.inflight = null })
+    this.inflight = this._refresh(force).finally(() => { this.inflight = null })
     return this.inflight
   }
 
-  async _refresh() {
+  async _refresh(force) {
+    if (!force && this.backoffUntil && this.now() < this.backoffUntil) {
+      return this.snapshot()
+    }
     let result
     try {
       result = await this.fetchUsage()
@@ -155,6 +177,12 @@ class UsagePoller {
       }
     }
     if (this.stopped) return emitted
+    if (result.code === 'HTTP_429') {
+      this.backoffUntil = this.now() + (result.retryAfterMs || RATE_LIMIT_BACKOFF_MS)
+      emitted.retryAt = this.backoffUntil
+    } else {
+      this.backoffUntil = 0
+    }
     if (result.ok) this.lastGood = result
     this.lastEmit = emitted
     try {
@@ -166,4 +194,4 @@ class UsagePoller {
   }
 }
 
-module.exports = { normalizeUsage, readAccessToken, fetchUsage, UsagePoller, USAGE_URL, OAUTH_BETA }
+module.exports = { normalizeUsage, readAccessToken, fetchUsage, UsagePoller, RATE_LIMIT_BACKOFF_MS, USAGE_URL, OAUTH_BETA }

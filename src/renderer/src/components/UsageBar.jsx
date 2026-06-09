@@ -43,10 +43,15 @@ export default function UsageBar({ detailed = false }) {
 
   if (!usage.windows) {
     const signIn = usage.code === 'NO_CREDS' || usage.code === 'AUTH'
+    const rateLimited = usage.code === 'HTTP_429'
     return (
       <div className={'usage-bar' + (detailed ? ' detailed' : '')}>
         <span className="usage-err" title={usage.error || ''}>
-          {signIn ? '⚠ usage: sign in with claude' : '⚠ usage unavailable'}
+          {rateLimited
+            ? '⚠ usage rate-limited — retrying soon'
+            : signIn
+              ? '⚠ usage: sign in with claude'
+              : '⚠ usage unavailable'}
         </span>
         <button className="usage-refresh" onClick={refresh} title="Retry">
           ⟳

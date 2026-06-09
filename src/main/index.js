@@ -121,7 +121,8 @@ ipcMain.handle('usage:get', () =>
   usagePoller ? usagePoller.snapshot() : { ok: false, code: 'INIT', error: 'starting', windows: null }
 )
 ipcMain.handle('usage:refresh', () =>
-  usagePoller ? usagePoller.refresh() : { ok: false, code: 'INIT', error: 'starting', windows: null }
+  // force=true: a deliberate user click bypasses the rate-limit backoff
+  usagePoller ? usagePoller.refresh(true) : { ok: false, code: 'INIT', error: 'starting', windows: null }
 )
 
 // ---- Slash commands (composer autocomplete) ---------------------------------
