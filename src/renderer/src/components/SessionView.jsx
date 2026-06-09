@@ -75,6 +75,7 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
   const [commands, setCommands] = useState([])
   const [slashIndex, setSlashIndex] = useState(0)
   const [slashDismissed, setSlashDismissed] = useState(false)
+  const [slashHint, setSlashHint] = useState(null)
   const [lightbox, setLightbox] = useState(null)
   const [attachment, setAttachment] = useState(null) // { file, name }
   const fileInputRef = useRef(null)
@@ -127,7 +128,20 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
   const slashSel = Math.max(0, Math.min(slashIndex, slashItems.length - 1))
 
   const completeSlash = (c) => {
-    setDraft(c.name + ' ') // trailing space closes the menu (regex no longer matches)
+    if (c.interactive) {
+      // No-op via `claude -p`; tell the user where it actually works.
+      const where =
+        c.name === '/model'
+          ? 'Use the model picker in the top bar.'
+          : c.name === '/remote-control'
+            ? 'Use the Remote toggle in the top bar.'
+            : 'Run this in the Terminal tab — it only works in a live session.'
+      setSlashHint(`${c.name} is a terminal command. ${where}`)
+      setSlashIndex(0)
+      return
+    }
+    setSlashHint(null)
+    setDraft(c.name + ' ')
     setSlashIndex(0)
   }
 
@@ -135,6 +149,7 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
   useEffect(() => {
     setSlashIndex(0)
     setSlashDismissed(false)
+    setSlashHint(null)
   }, [slashFilter]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const onScroll = () => {
@@ -326,6 +341,7 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
               </button>
             </div>
           )}
+          {slashHint && <div className="slash-hint">{slashHint}</div>}
           {slashItems.length > 0 && (
             <SlashMenu items={slashItems} selected={slashSel} onPick={completeSlash} />
           )}
