@@ -7,7 +7,7 @@ import SkillsView from './components/SkillsView'
 import LivePanel from './components/LivePanel'
 import { applyTheme, loadTheme, saveTheme } from './lib/themes'
 import UsageBar from './components/UsageBar'
-import ModelPicker from './components/ModelPicker'
+import ControlBar from './components/ControlBar'
 import { DEFAULT_MODEL, isKnownModel } from './lib/models'
 
 // The terminal stays MOUNTED at all times so its PTY (and any running `claude`)
@@ -38,6 +38,9 @@ export default function App() {
   }, [])
 
   const openFileRef = useRef(null) // the file currently watched, for refresh matching
+
+  const [live, setLive] = useState(null)
+  useEffect(() => window.flux.live.onUpdate(setLive), [])
 
   useEffect(() => {
     applyTheme(theme)
@@ -229,7 +232,13 @@ export default function App() {
               {selected.title}
             </button>
           )}
-          <ModelPicker model={model} onChange={setModel} />
+          <ControlBar
+            model={model}
+            onModel={setModel}
+            agents={live && live.tracking ? live.subagents : null}
+            liveActive={!!(live && live.tracking && live.state === 'live')}
+            onAgentsClick={() => setView('terminal')}
+          />
           <UsageBar />
         </div>
 
