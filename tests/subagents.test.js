@@ -79,3 +79,19 @@ test('summarizeSubagents counts running vs total', () => {
   assert.deepStrictEqual(s, { running: 2, total: 3 })
   assert.deepStrictEqual(summarizeSubagents([]), { running: 0, total: 0 })
 })
+
+const { countSubagents } = require('../src/main/subagents')
+
+test('countSubagents: total via readdir, running via mtime when live; no parse; missing dir -> 0/0', () => {
+  const { file, sub } = makeSession()
+  writeAgent(sub, 'aaa', { description: 'x' }, [{ type: 'user', message: { content: 'go' } }])
+  writeAgent(sub, 'bbb', { description: 'y' }, [{ type: 'user', message: { content: 'go' } }])
+  // not live -> running 0, total 2
+  assert.deepStrictEqual(countSubagents(file, { live: false }), { running: 0, total: 2 })
+  // live + fresh mtime -> both running
+  assert.deepStrictEqual(countSubagents(file, { live: true, now: Date.now(), freshMs: 60000 }), { running: 2, total: 2 })
+  // live + stale -> 0 running, total still 2
+  assert.deepStrictEqual(countSubagents(file, { live: true, now: Date.now() + 10 * 60000, freshMs: 60000 }), { running: 0, total: 2 })
+  // missing dir
+  assert.deepStrictEqual(countSubagents('/no/such/sess.jsonl'), { running: 0, total: 0 })
+})

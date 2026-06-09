@@ -1,7 +1,7 @@
 const fs = require('fs')
 const { parseLine, freshModel, applyEvent, finalize } = require('./parser')
 const { findSessionFileById } = require('./sessions')
-const { listSubagents, summarizeSubagents } = require('./subagents')
+const { countSubagents } = require('./subagents')
 
 // LiveTracker tails a Claude Code session JSONL as it is being written and emits
 // periodic snapshots (token usage, cost inputs, tools, recent events).
@@ -112,7 +112,7 @@ class LiveTracker {
     let subagents = { running: 0, total: 0 }
     if (this.file) {
       try {
-        subagents = summarizeSubagents(listSubagents(this.file, { live: true }))
+        subagents = countSubagents(this.file, { live: true })
       } catch {
         /* dir may not exist yet */
       }

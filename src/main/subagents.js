@@ -92,4 +92,33 @@ function summarizeSubagents(list) {
   return { running, total: list.length }
 }
 
-module.exports = { listSubagents, readSubagent, subagentsDirFor, summarizeSubagents }
+/**
+ * Fast {running,total} summary from readdir+stat only — NO transcript parse.
+ * Used by the 1.5s live tick; listSubagents (full parse) is for on-demand drill-in.
+ */
+function countSubagents(sessionFile, opts = {}) {
+  const dir = subagentsDirFor(sessionFile)
+  let entries
+  try {
+    entries = fs.readdirSync(dir).filter((f) => /^agent-.*\.jsonl$/.test(f))
+  } catch {
+    return { running: 0, total: 0 }
+  }
+  const live = !!opts.live
+  const now = opts.now || Date.now()
+  const freshMs = opts.freshMs || DEFAULT_FRESH_MS
+  let running = 0
+  if (live) {
+    for (const f of entries) {
+      try {
+        const st = fs.statSync(path.join(dir, f))
+        if (now - st.mtimeMs < freshMs) running++
+      } catch {
+        /* file vanished mid-scan */
+      }
+    }
+  }
+  return { running, total: entries.length }
+}
+
+module.exports = { listSubagents, readSubagent, subagentsDirFor, summarizeSubagents, countSubagents }
