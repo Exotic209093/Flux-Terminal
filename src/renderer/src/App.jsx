@@ -3,6 +3,7 @@ import Sidebar from './components/Sidebar'
 import TerminalPane from './components/TerminalPane'
 import SessionView from './components/SessionView'
 import StatsView from './components/StatsView'
+import SkillsView from './components/SkillsView'
 import LivePanel from './components/LivePanel'
 import { applyTheme, loadTheme, saveTheme } from './lib/themes'
 
@@ -99,7 +100,12 @@ export default function App() {
       setSendState('running')
       setSendError(null)
       window.flux.sessions
-        .send({ sessionId: detail.sessionId || selected.sessionId, cwd: detail.cwd, message })
+        .send({
+          sessionId: detail.sessionId || selected.sessionId,
+          // resume must run from the session's creation cwd (where its file lives)
+          cwd: detail.firstCwd || detail.cwd,
+          message
+        })
         .then((res) => {
           if (!res.ok) {
             setSendState('error')
@@ -141,6 +147,12 @@ export default function App() {
           >
             📊 Stats
           </button>
+          <button
+            className={'tab' + (view === 'skills' ? ' active' : '')}
+            onClick={() => setView('skills')}
+          >
+            🧩 Skills
+          </button>
           {selected && (
             <button
               className={'tab' + (view === 'session' ? ' active' : '')}
@@ -171,6 +183,11 @@ export default function App() {
         {view === 'stats' && (
           <div className="pane-slot">
             <StatsView sessions={sessions} loading={sessionsLoading} />
+          </div>
+        )}
+        {view === 'skills' && (
+          <div className="pane-slot">
+            <SkillsView />
           </div>
         )}
       </main>

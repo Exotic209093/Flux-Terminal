@@ -20,7 +20,8 @@ export default defineConfig({
           pty: resolve('src/main/pty.js'),
           sessions: resolve('src/main/sessions.js'),
           parser: resolve('src/main/parser.js'),
-          live: resolve('src/main/live.js')
+          live: resolve('src/main/live.js'),
+          skills: resolve('src/main/skills.js')
         },
         output: {
           entryFileNames: '[name].js'

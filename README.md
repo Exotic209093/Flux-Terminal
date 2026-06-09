@@ -102,8 +102,12 @@ scripts/
       to the bottom unless you scroll up, with a **↓ jump-to-latest** button. A **context-window
       gauge** at the top shows how full the model's context is (e.g. 56% · 538K / 1M).
 
+- [x] **Skills section:** a Skills tab listing your local skills (`~/.claude/skills`), plugin
+      skills, and **starter skills bundled with Flux** (`skills/`) you can install into
+      `~/.claude/skills` with one click. (Resume also now runs from a session's *creation*
+      cwd, so messaging works even if the session changed directories.)
+
 ### Possible next steps
-- Skills section: list locally-installed skills (and optionally bundle some with the app)
 - Auto-detect / attach to a `claude` you started manually (not via the button)
 - Timeline scrubber / playback controls; collapse long thinking blocks
 - Render images embedded in tool results; syntax-highlight code in the replay

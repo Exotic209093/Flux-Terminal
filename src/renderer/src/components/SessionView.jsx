@@ -20,6 +20,14 @@ const KIND_LABEL = {
   tool_result: 'Result'
 }
 
+function friendlyError(err) {
+  if (!err) return 'Send failed.'
+  if (/No conversation found/i.test(err)) {
+    return "Couldn't resume this session. It's likely running live right now — you can't message an in-progress session (e.g. the one you're chatting in elsewhere). Open a past session to continue it."
+  }
+  return err
+}
+
 function TimelineItem({ item }) {
   const cls = 'tl-item tl-' + item.kind + (item.isError ? ' tl-error' : '')
   return (
@@ -176,7 +184,7 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
               <span className="live-dot" /> claude is working…
             </div>
           )}
-          {sendState === 'error' && <div className="tl-senderror">⚠ {sendError || 'send failed'}</div>}
+          {sendState === 'error' && <div className="tl-senderror">⚠ {friendlyError(sendError)}</div>}
         </div>
 
         {showJump && (

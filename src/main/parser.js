@@ -58,6 +58,7 @@ function freshModel(file) {
     file: file || null,
     sessionId: null,
     cwd: null,
+    firstCwd: null, // creation cwd — maps to the project dir the file lives in (resume needs this)
     gitBranch: null,
     title: null,
     version: null,
@@ -80,7 +81,12 @@ function freshModel(file) {
 function applyEvent(o, model, timeline) {
   model.lineCount++
   if (o.sessionId && !model.sessionId) model.sessionId = o.sessionId
-  if (o.cwd) model.cwd = o.cwd
+  if (o.cwd) {
+    model.cwd = o.cwd
+    // The session file lives in the project dir of the CREATION cwd; resuming
+    // must run from there even if the user cd'd later in the session.
+    if (!model.firstCwd) model.firstCwd = o.cwd
+  }
   if (o.gitBranch) model.gitBranch = o.gitBranch
   if (o.version) model.version = o.version
   if (o.timestamp) {

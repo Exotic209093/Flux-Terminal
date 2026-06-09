@@ -4,9 +4,10 @@ const fs = require('fs')
 const os = require('os')
 const { spawn } = require('child_process')
 const { createPty } = require('./pty')
-const { listSessions } = require('./sessions')
+const { listSessions, findSessionFileById } = require('./sessions')
 const { parseSessionFile } = require('./parser')
 const { LiveTracker } = require('./live')
+const { listSkills, installBundledSkill } = require('./skills')
 
 let mainWindow = null
 let ptyProc = null
@@ -96,6 +97,22 @@ function emit(channel, payload) {
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(channel, payload)
 }
 
+// ---- Skills ---------------------------------------------------------------
+ipcMain.handle('skills:list', () => {
+  try {
+    return { ok: true, skills: listSkills(app.getAppPath()) }
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+})
+ipcMain.handle('skills:install', (_e, name) => {
+  try {
+    return installBundledSkill(app.getAppPath(), name)
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+})
+
 // ---- Session watch (re-parse on change) -----------------------------------
 let watchFile = null
 let watchTimer = null
@@ -135,8 +152,33 @@ ipcMain.on('session:unwatch', () => {
 // prompt from stdin (so the message never touches the shell command line). The
 // reply is appended to the session's JSONL — the watcher above surfaces it.
 let sendChild = null
+let lastSentAt = 0
 ipcMain.handle('session:send', (_e, { sessionId, cwd, message }) => {
   if (!sessionId || !message) return { ok: false, error: 'missing sessionId or message' }
+
+  // Guard: can't resume a session that's currently live (being written by another
+  // running claude) — it hangs/fails. Recent mtime + we didn't just send here =>
+  // it's active elsewhere. (Within 30s of our own send we skip this so a normal
+  // back-and-forth isn't false-flagged.)
+  const file = findSessionFileById(sessionId)
+  if (file) {
+    try {
+      const st = fs.statSync(file)
+      if (Date.now() - st.mtimeMs < 10000 && Date.now() - lastSentAt > 30000) {
+        return {
+          ok: false,
+          error:
+            "This session is active right now (being written elsewhere). You can't message an in-progress session — open a past one to continue it."
+        }
+      }
+    } catch {
+      /* ignore stat errors */
+    }
+  }
+  if (cwd && !fs.existsSync(cwd)) {
+    return { ok: false, error: "This session's working folder no longer exists:\n" + cwd }
+  }
+
   try {
     const child = spawn('claude', ['--resume', sessionId, '-p'], {
       cwd: cwd || os.homedir(),
@@ -144,23 +186,34 @@ ipcMain.handle('session:send', (_e, { sessionId, cwd, message }) => {
       windowsHide: true
     })
     sendChild = child
+    lastSentAt = Date.now()
     emit('session:sendstatus', { sessionId, state: 'running' })
+
     let stderr = ''
+    let settled = false
+    const finish = (state, error) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      emit('session:sendstatus', { sessionId, state, error: error || null })
+      sendChild = null
+    }
+    const timer = setTimeout(() => {
+      try {
+        child.kill()
+      } catch {
+        /* ignore */
+      }
+      finish('error', "claude didn't respond in time. The session may be open elsewhere, or its folder moved.")
+    }, 150000)
+
     child.stderr.on('data', (d) => {
       stderr += d.toString()
     })
-    child.on('error', (err) => {
-      emit('session:sendstatus', { sessionId, state: 'error', error: err.message })
-      sendChild = null
-    })
-    child.on('exit', (code) => {
-      emit('session:sendstatus', {
-        sessionId,
-        state: code === 0 ? 'done' : 'error',
-        error: code === 0 ? null : stderr.slice(0, 400) || 'claude exited ' + code
-      })
-      sendChild = null
-    })
+    child.on('error', (err) => finish('error', err.message))
+    child.on('exit', (code) =>
+      finish(code === 0 ? 'done' : 'error', code === 0 ? null : stderr.slice(0, 400) || 'claude exited ' + code)
+    )
     child.stdin.write(message)
     child.stdin.end()
     return { ok: true }
@@ -204,6 +257,10 @@ app.whenReady().then(() => {
           await wc.executeJavaScript("document.querySelector('.stats-btn')?.click()")
         } else if (process.env.FLUX_SMOKE_VIEW === 'session') {
           await wc.executeJavaScript("document.querySelector('.session-card')?.click()")
+        } else if (process.env.FLUX_SMOKE_VIEW === 'skills') {
+          await wc.executeJavaScript(
+            "[...document.querySelectorAll('.tab')].find((b) => /Skills/.test(b.textContent))?.click()"
+          )
         }
         if (process.env.FLUX_SMOKE_THEME) {
           const t = JSON.stringify(process.env.FLUX_SMOKE_THEME)

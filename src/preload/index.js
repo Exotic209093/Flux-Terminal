@@ -34,6 +34,10 @@ contextBridge.exposeInMainWorld('flux', {
       return () => ipcRenderer.removeListener('session:sendstatus', listener)
     }
   },
+  skills: {
+    list: () => ipcRenderer.invoke('skills:list'),
+    install: (name) => ipcRenderer.invoke('skills:install', name)
+  },
   live: {
     track: (sessionId) => ipcRenderer.send('live:track', sessionId),
     stop: () => ipcRenderer.send('live:stop'),
