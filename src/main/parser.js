@@ -12,6 +12,8 @@ const fs = require('fs')
 // drift apart.
 
 const MAX_TEXT = 6000 // cap per-item text so a huge message can't bloat the UI
+const MAX_IMAGE_B64 = 2_000_000 // ~1.5 MB decoded; bigger images become placeholders
+const MAX_IMAGES = 40 // per parse — a screenshot-heavy session can't bloat the IPC payload
 
 /** Parse one line; return the object or null if it isn't valid JSON yet. */
 function parseLine(line) {
@@ -66,7 +68,7 @@ function freshModel(file) {
     __models: new Set(),
     firstTimestamp: null,
     lastTimestamp: null,
-    counts: { user: 0, assistant: 0, toolUse: 0, toolResult: 0, thinking: 0, system: 0, total: 0 },
+    counts: { user: 0, assistant: 0, toolUse: 0, toolResult: 0, thinking: 0, system: 0, image: 0, total: 0 },
     usage: emptyUsage(),
     tools: {},
     lastTool: null,
@@ -158,14 +160,49 @@ function walkContent(o, model, timeline, role) {
         }
         if (timeline) timeline.push({ kind: 'tool_use', ts, toolName: block.name || 'tool', toolInput: preview(block.input) })
         break
-      case 'tool_result':
-        model.counts.toolResult++
-        if (timeline) timeline.push({ kind: 'tool_result', ts, isError: !!block.is_error, text: preview(block.content) })
+      case 'image':
+        pushImage(block, model, timeline, ts)
         break
+      case 'tool_result': {
+        model.counts.toolResult++
+        const inner = Array.isArray(block.content) ? block.content : null
+        if (timeline) {
+          const text = inner
+            ? truncate(
+                inner
+                  .filter((b) => b && b.type === 'text' && typeof b.text === 'string')
+                  .map((b) => b.text)
+                  .join('\n'),
+                600
+              )
+            : preview(block.content)
+          timeline.push({ kind: 'tool_result', ts, isError: !!block.is_error, text })
+        }
+        if (inner) {
+          for (const b of inner) {
+            if (b && b.type === 'image') pushImage(b, model, timeline, ts)
+          }
+        }
+        break
+      }
       default:
         break
     }
   }
+}
+
+/** Push an image content block as a timeline item (with size/count caps). */
+function pushImage(block, model, timeline, ts) {
+  const src = block && block.source
+  if (!src || src.type !== 'base64' || typeof src.data !== 'string') return
+  model.counts.image++
+  if (!timeline) return
+  const mediaType = src.media_type || 'image/png'
+  if (src.data.length > MAX_IMAGE_B64 || model.counts.image > MAX_IMAGES) {
+    timeline.push({ kind: 'image', ts, truncated: true, mediaType })
+    return
+  }
+  timeline.push({ kind: 'image', ts, mediaType, data: src.data })
 }
 
 /** Convert the internal model Set to a serializable array; compute totals. */

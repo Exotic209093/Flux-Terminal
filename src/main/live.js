@@ -121,7 +121,11 @@ class LiveTracker {
       usage: snap.usage,
       tools: snap.tools,
       lastTool: snap.lastTool,
-      recent: this.timeline ? this.timeline.slice(-MAX_RECENT) : []
+      recent: this.timeline
+        ? this.timeline
+            .slice(-MAX_RECENT)
+            .map((it) => (it.kind === 'image' && it.data ? { ...it, data: undefined, truncated: true } : it))
+        : []
     })
   }
 }
