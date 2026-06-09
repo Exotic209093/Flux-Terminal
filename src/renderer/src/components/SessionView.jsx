@@ -66,7 +66,7 @@ function TimelineItem({ item, onImage }) {
   )
 }
 
-export default function SessionView({ detail, loading, sendState, sendError, onSend }) {
+export default function SessionView({ detail, loading, sendState, sendError, onSend, newChat, onPickFolder }) {
   const scrollRef = useRef(null)
   const autoFollow = useRef(true)
   const [showJump, setShowJump] = useState(false)
@@ -238,8 +238,51 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
   }
 
   if (loading) return <div className="sv-empty">Loading session…</div>
-  if (!detail) return <div className="sv-empty">Select a session to relive it.</div>
-  if (detail.ok === false) return <div className="sv-empty error">⚠ {detail.error}</div>
+  if (!detail && !newChat) return <div className="sv-empty">Select a session to relive it.</div>
+  if (detail && detail.ok === false) return <div className="sv-empty error">⚠ {detail.error}</div>
+
+  if (newChat && !detail) {
+    return (
+      <div className="session-view">
+        <div className="sv-header">
+          <h2 className="sv-title">New chat</h2>
+          <div className="sv-sub">
+            <span className="sv-project">{newChat.cwd || 'home folder'}</span>
+            <button className="folder-pick" onClick={onPickFolder} title="Choose working folder">
+              📁 choose folder
+            </button>
+          </div>
+        </div>
+        <div className="sv-timeline-wrap">
+          <div className="sv-timeline">
+            <div className="sv-empty">Type a message to start a new chat with the selected model.</div>
+            {sendState === 'running' && (
+              <div className="tl-working">
+                <span className="live-dot" /> claude is working…
+              </div>
+            )}
+            {sendState === 'error' && <div className="tl-senderror">⚠ {sendError}</div>}
+          </div>
+        </div>
+        <Composer
+          draft={draft}
+          setDraft={setDraft}
+          onKeyDown={onKeyDown}
+          onSubmit={submit}
+          sendState={sendState}
+          slashItems={slashItems}
+          slashSel={slashSel}
+          completeSlash={completeSlash}
+          slashHint={slashHint}
+          attachment={attachment}
+          setAttachment={setAttachment}
+          fileInputRef={fileInputRef}
+          stashImage={stashImage}
+          onPaste={onPaste}
+        />
+      </div>
+    )
+  }
 
   const usage = detail.usage
   const cost = estimateCost(usage, detail.models && detail.models[0])
@@ -312,58 +355,22 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
         )}
       </div>
 
-      <div className="sv-composer">
-        <button
-          className="composer-attach"
-          title="Attach image"
-          onClick={() => fileInputRef.current && fileInputRef.current.click()}
-          disabled={sendState === 'running'}
-        >
-          📎
-        </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          style={{ display: 'none' }}
-          onChange={(e) => {
-            const f = e.target.files && e.target.files[0]
-            if (f) stashImage(f)
-            e.target.value = ''
-          }}
-        />
-        <div className="composer-mid">
-          {attachment && (
-            <div className="composer-chip">
-              🖼 {attachment.name}
-              <button className="chip-x" onClick={() => setAttachment(null)} title="Remove attachment">
-                ✕
-              </button>
-            </div>
-          )}
-          {slashHint && <div className="slash-hint">{slashHint}</div>}
-          {slashItems.length > 0 && (
-            <SlashMenu items={slashItems} selected={slashSel} onPick={completeSlash} />
-          )}
-          <textarea
-            className="composer-input"
-            placeholder="Message this session…  (Enter to send · Shift+Enter for newline · / for commands · paste images)"
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={onKeyDown}
-            onPaste={onPaste}
-            rows={1}
-            disabled={sendState === 'running'}
-          />
-        </div>
-        <button
-          className="composer-send"
-          onClick={submit}
-          disabled={sendState === 'running' || (!draft.trim() && !attachment)}
-        >
-          {sendState === 'running' ? '…' : 'Send'}
-        </button>
-      </div>
+      <Composer
+        draft={draft}
+        setDraft={setDraft}
+        onKeyDown={onKeyDown}
+        onSubmit={submit}
+        sendState={sendState}
+        slashItems={slashItems}
+        slashSel={slashSel}
+        completeSlash={completeSlash}
+        slashHint={slashHint}
+        attachment={attachment}
+        setAttachment={setAttachment}
+        fileInputRef={fileInputRef}
+        stashImage={stashImage}
+        onPaste={onPaste}
+      />
       <Lightbox item={lightbox} onClose={() => setLightbox(null)} />
     </div>
   )
@@ -374,6 +381,63 @@ function Stat({ label, value, accent }) {
     <div className={'sv-stat' + (accent ? ' accent' : '')}>
       <div className="sv-stat-v">{value}</div>
       <div className="sv-stat-l">{label}</div>
+    </div>
+  )
+}
+
+function Composer({ draft, setDraft, onKeyDown, onSubmit, sendState, slashItems, slashSel, completeSlash, slashHint, attachment, setAttachment, fileInputRef, stashImage, onPaste }) {
+  return (
+    <div className="sv-composer">
+      <button
+        className="composer-attach"
+        title="Attach image"
+        onClick={() => fileInputRef.current && fileInputRef.current.click()}
+        disabled={sendState === 'running'}
+      >
+        📎
+      </button>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        style={{ display: 'none' }}
+        onChange={(e) => {
+          const f = e.target.files && e.target.files[0]
+          if (f) stashImage(f)
+          e.target.value = ''
+        }}
+      />
+      <div className="composer-mid">
+        {attachment && (
+          <div className="composer-chip">
+            🖼 {attachment.name}
+            <button className="chip-x" onClick={() => setAttachment(null)} title="Remove attachment">
+              ✕
+            </button>
+          </div>
+        )}
+        {slashHint && <div className="slash-hint">{slashHint}</div>}
+        {slashItems.length > 0 && (
+          <SlashMenu items={slashItems} selected={slashSel} onPick={completeSlash} />
+        )}
+        <textarea
+          className="composer-input"
+          placeholder="Message this session…  (Enter to send · Shift+Enter for newline · / for commands · paste images)"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={onKeyDown}
+          onPaste={onPaste}
+          rows={1}
+          disabled={sendState === 'running'}
+        />
+      </div>
+      <button
+        className="composer-send"
+        onClick={onSubmit}
+        disabled={sendState === 'running' || (!draft.trim() && !attachment)}
+      >
+        {sendState === 'running' ? '…' : 'Send'}
+      </button>
     </div>
   )
 }

@@ -24,6 +24,7 @@ export default function App() {
   const [sendState, setSendState] = useState(null) // null | 'running' | 'error'
   const [sendError, setSendError] = useState(null)
   const [view, setView] = useState('terminal') // 'terminal' | 'session' | 'stats'
+  const [newChat, setNewChat] = useState(null) // { cwd } when composing a new chat
 
   const [theme, setThemeState] = useState(loadTheme())
 
@@ -106,6 +107,49 @@ export default function App() {
       })
   }, [])
 
+  const startNewChat = useCallback(() => {
+    setSelected(null)
+    setDetail(null)
+    setSendState(null)
+    setSendError(null)
+    setNewChat({ cwd: '' }) // '' => main defaults to home; user can pick a folder
+    setView('session')
+  }, [])
+
+  const sendNewChat = useCallback(
+    (message) => {
+      if (sendState === 'running') return
+      setSendState('running')
+      setSendError(null)
+      window.flux.sessions
+        .newChat({ message, cwd: newChat?.cwd || null, model })
+        .then((res) => {
+          if (!res.ok) {
+            setSendState('error')
+            setSendError(res.error || 'failed to start chat')
+            return
+          }
+          const open = (tries) => {
+            window.flux.sessions.list({ limit: 50 }).then((r) => {
+              const found = r.ok && r.sessions.find((s) => s.sessionId === res.sessionId)
+              if (found) {
+                setNewChat(null)
+                openSession(found)
+              } else if (tries > 0) {
+                setTimeout(() => open(tries - 1), 600)
+              }
+            })
+          }
+          open(8)
+        })
+        .catch((e) => {
+          setSendState('error')
+          setSendError(String(e))
+        })
+    },
+    [newChat, model, sendState, openSession]
+  )
+
   const sendMessage = useCallback(
     (message) => {
       if (!selected || !detail || sendState === 'running') return
@@ -116,7 +160,8 @@ export default function App() {
           sessionId: detail.sessionId || selected.sessionId,
           // resume must run from the session's creation cwd (where its file lives)
           cwd: detail.firstCwd || detail.cwd,
-          message
+          message,
+          model
         })
         .then((res) => {
           if (!res.ok) {
@@ -129,7 +174,7 @@ export default function App() {
           setSendError(String(e))
         })
     },
-    [selected, detail, sendState]
+    [selected, detail, sendState, model]
   )
 
   return (
@@ -144,6 +189,7 @@ export default function App() {
         statsActive={view === 'stats'}
         theme={theme}
         onTheme={setTheme}
+        onNewChat={startNewChat}
       />
       <main className="main-pane">
         <div className="topbar">
@@ -190,7 +236,12 @@ export default function App() {
               loading={loadingDetail}
               sendState={sendState}
               sendError={sendError}
-              onSend={sendMessage}
+              onSend={newChat ? sendNewChat : sendMessage}
+              newChat={newChat}
+              onPickFolder={async () => {
+                const r = await window.flux.dialog.pickFolder()
+                if (r.ok) setNewChat((nc) => ({ ...(nc || {}), cwd: r.path }))
+              }}
             />
           </div>
         )}

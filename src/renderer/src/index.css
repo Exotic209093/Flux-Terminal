@@ -1244,3 +1244,28 @@ body,
   font-size: 12px;
   cursor: pointer;
 }
+
+/* ---- new chat button + folder picker ------------------------------------ */
+.new-chat-btn {
+  width: 100%;
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  background: var(--accent);
+  color: #0b0e14;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.new-chat-btn:hover { filter: brightness(1.08); }
+.folder-pick {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 2px 8px;
+}
+.folder-pick:hover { color: var(--text); background: var(--bg-hover); }

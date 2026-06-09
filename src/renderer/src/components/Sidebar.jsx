@@ -11,7 +11,8 @@ export default function Sidebar({
   onShowStats,
   statsActive,
   theme,
-  onTheme
+  onTheme,
+  onNewChat
 }) {
   const [query, setQuery] = useState('')
 
@@ -27,6 +28,7 @@ export default function Sidebar({
 
   return (
     <aside className="sidebar">
+      <button className="new-chat-btn" onClick={onNewChat}>+ New chat</button>
       <header className="sidebar-head">
         <div className="brand-row">
           <div className="brand">
