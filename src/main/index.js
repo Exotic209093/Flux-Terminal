@@ -10,6 +10,7 @@ const { LiveTracker } = require('./live')
 const { listSkills, installBundledSkill } = require('./skills')
 const { UsagePoller } = require('./usage')
 const { listCommands } = require('./commands')
+const { listSubagents, readSubagent } = require('./subagents')
 
 let mainWindow = null
 let ptyProc = null
@@ -111,6 +112,22 @@ ipcMain.handle('skills:list', () => {
 ipcMain.handle('skills:install', (_e, name) => {
   try {
     return installBundledSkill(app.getAppPath(), name)
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+})
+
+// ---- Subagents ------------------------------------------------------------
+ipcMain.handle('subagents:list', (_e, { file, live }) => {
+  try {
+    return { ok: true, subagents: listSubagents(file, { live: !!live }) }
+  } catch (err) {
+    return { ok: false, error: err.message, subagents: [] }
+  }
+})
+ipcMain.handle('subagent:read', (_e, { file, agentId }) => {
+  try {
+    return { ok: true, detail: readSubagent(file, agentId) }
   } catch (err) {
     return { ok: false, error: err.message }
   }

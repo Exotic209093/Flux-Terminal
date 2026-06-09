@@ -61,6 +61,10 @@ contextBridge.exposeInMainWorld('flux', {
   commands: {
     list: (cwd) => ipcRenderer.invoke('commands:list', cwd)
   },
+  subagents: {
+    list: (args) => ipcRenderer.invoke('subagents:list', args),
+    read: (args) => ipcRenderer.invoke('subagent:read', args)
+  },
   image: {
     stash: (args) => ipcRenderer.invoke('image:stash', args)
   },
