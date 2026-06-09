@@ -90,6 +90,40 @@ ipcMain.handle('session:read', (_e, file) => {
 // ---- App lifecycle --------------------------------------------------------
 app.whenReady().then(() => {
   createWindow()
+
+  // Debug screenshot of the REAL app (real window + real IPC handlers). Set:
+  //   FLUX_SMOKE_SHOT=<path>     capture once after load, then quit (no-op if unset)
+  //   FLUX_SMOKE_VIEW=stats|session   click into that view before capturing
+  //   FLUX_SMOKE_THEME=<key>          switch theme before capturing
+  if (process.env.FLUX_SMOKE_SHOT && mainWindow) {
+    const shotPath = process.env.FLUX_SMOKE_SHOT
+    const wc = mainWindow.webContents
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms))
+    wc.once('did-finish-load', async () => {
+      try {
+        await wait(2500)
+        if (process.env.FLUX_SMOKE_VIEW === 'stats') {
+          await wc.executeJavaScript("document.querySelector('.stats-btn')?.click()")
+        } else if (process.env.FLUX_SMOKE_VIEW === 'session') {
+          await wc.executeJavaScript("document.querySelector('.session-card')?.click()")
+        }
+        if (process.env.FLUX_SMOKE_THEME) {
+          const t = JSON.stringify(process.env.FLUX_SMOKE_THEME)
+          await wc.executeJavaScript(
+            `(() => { const s = document.querySelector('.theme-select'); if (s) { s.value = ${t}; s.dispatchEvent(new Event('change', { bubbles: true })) } })()`
+          )
+        }
+        await wait(1800)
+        const img = await wc.capturePage()
+        require('fs').writeFileSync(shotPath, img.toPNG())
+        console.log('FLUX_SMOKE_SHOT_OK ' + shotPath)
+      } catch (err) {
+        console.error('FLUX_SMOKE_SHOT_ERR ' + err.message)
+      }
+      app.quit()
+    })
+  }
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })

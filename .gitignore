@@ -8,3 +8,5 @@ release/
 
 # Smoke-test / diagnostic artifacts
 smoke-window.png
+real-app.png
+real-app.out
