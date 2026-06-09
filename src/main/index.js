@@ -9,6 +9,7 @@ const { parseSessionFile } = require('./parser')
 const { LiveTracker } = require('./live')
 const { listSkills, installBundledSkill } = require('./skills')
 const { UsagePoller } = require('./usage')
+const { listCommands } = require('./commands')
 
 let mainWindow = null
 let ptyProc = null
@@ -122,6 +123,15 @@ ipcMain.handle('usage:get', () =>
 ipcMain.handle('usage:refresh', () =>
   usagePoller ? usagePoller.refresh() : { ok: false, code: 'INIT', error: 'starting', windows: null }
 )
+
+// ---- Slash commands (composer autocomplete) ---------------------------------
+ipcMain.handle('commands:list', (_e, cwd) => {
+  try {
+    return { ok: true, commands: listCommands(cwd) }
+  } catch (err) {
+    return { ok: false, error: err.message, commands: [] }
+  }
+})
 
 // ---- Session watch (re-parse on change) -----------------------------------
 let watchFile = null

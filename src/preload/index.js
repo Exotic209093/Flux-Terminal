@@ -55,5 +55,8 @@ contextBridge.exposeInMainWorld('flux', {
       ipcRenderer.on('usage:update', listener)
       return () => ipcRenderer.removeListener('usage:update', listener)
     }
+  },
+  commands: {
+    list: (cwd) => ipcRenderer.invoke('commands:list', cwd)
   }
 })

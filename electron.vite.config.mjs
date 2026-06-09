@@ -22,7 +22,8 @@ export default defineConfig({
           parser: resolve('src/main/parser.js'),
           live: resolve('src/main/live.js'),
           skills: resolve('src/main/skills.js'),
-          usage: resolve('src/main/usage.js')
+          usage: resolve('src/main/usage.js'),
+          commands: resolve('src/main/commands.js')
         },
         output: {
           entryFileNames: '[name].js'
