@@ -117,6 +117,12 @@ scripts/
 - [x] **Images:** session images render inline with a click-to-zoom lightbox;
       paste or attach an image in the composer to send it.
 
+- [x] **Session Workspace v2:** start new chats in the rich UI (folder + model
+      selection), a topbar model switcher, interrupt a running turn, the full
+      slash-command set (terminal-only ones marked), subagent sub-views with
+      drill-in timelines, and a topbar control cluster (model · running-agents ·
+      remote-control toggle).
+
 ### Possible next steps
 - Auto-detect / attach to a `claude` you started manually (not via the button)
 - Timeline scrubber / playback controls; collapse long thinking blocks
