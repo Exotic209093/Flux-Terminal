@@ -1,15 +1,18 @@
 const test = require('node:test')
 const assert = require('node:assert')
 
-// templates.js is a renderer-side ES module, but it must be pure functions
-// testable under Node's CJS runner. We load it via a small wrapper since
-// electron-vite doesn't pre-build renderer libs for tests. The module uses
-// named exports; we require the CommonJS-compatible sibling.
-const {
-  parsePlaceholders,
-  expandTemplate,
-  nextPlaceholderRange
-} = require('../src/main/templates')
+// The template engine lives in the renderer lib as an ES module.
+// We load it with dynamic import (the same pattern the models.test.js uses)
+// so the test runner exercises the exact file the renderer ships.
+let parsePlaceholders, expandTemplate, nextPlaceholderRange, insertTemplate
+
+test('load template module', async () => {
+  const mod = await import('../src/renderer/src/lib/templates.js')
+  parsePlaceholders = mod.parsePlaceholders
+  expandTemplate = mod.expandTemplate
+  nextPlaceholderRange = mod.nextPlaceholderRange
+  insertTemplate = mod.insertTemplate
+})
 
 // -------------------------------------------------------------------------
 
@@ -108,8 +111,6 @@ test('nextPlaceholderRange: finds {{cursor}} placeholder', () => {
 // updated {value, selectionStart, selectionEnd} after inserting the template
 // at the current word-start (where ";;" was typed).
 // -------------------------------------------------------------------------
-
-const { insertTemplate } = require('../src/main/templates')
 
 test('insertTemplate: replaces ";;" trigger and returns text with first placeholder selected', () => {
   // user typed ";;" at position 2 in "  ;;"

@@ -1,7 +1,11 @@
-// Renderer-side re-export of the template engine.
-// The canonical implementation lives in src/main/templates.js (CJS) so it can
-// be tested under the Node test runner. This module re-implements the same
-// pure functions as ES module exports for the renderer bundle.
+// Template engine for the prompt library.
+// Pure functions — no side effects, no imports.
+//
+// Syntax:
+//   {{varName}}  — named placeholder
+//   {{cursor}}   — special: marks caret position after insertion
+//   {{{{         — escaped literal "{{" in output
+//   }}}}         — escaped literal "}}" in output
 
 // Sentinels chosen to never appear in real template text
 const SENT_OPEN = '\x00OPEN\x00'
