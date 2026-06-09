@@ -30,6 +30,7 @@ export default function SubagentPanel({ file, live, renderTimeline }) {
       return
     }
     let alive = true
+    setDetail(null) // clear stale detail from the previously-open row
     window.flux.subagents.read({ file, agentId: openId }).then((r) => {
       if (alive && r.ok) setDetail(r.detail)
     })
