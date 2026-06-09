@@ -1,5 +1,8 @@
 const { app, BrowserWindow, ipcMain } = require('electron')
 const path = require('path')
+const fs = require('fs')
+const os = require('os')
+const { spawn } = require('child_process')
 const { createPty } = require('./pty')
 const { listSessions } = require('./sessions')
 const { parseSessionFile } = require('./parser')
@@ -89,6 +92,83 @@ ipcMain.handle('session:read', (_e, file) => {
   }
 })
 
+function emit(channel, payload) {
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(channel, payload)
+}
+
+// ---- Session watch (re-parse on change) -----------------------------------
+let watchFile = null
+let watchTimer = null
+let watchMtime = 0
+
+ipcMain.on('session:watch', (_e, file) => {
+  watchFile = file
+  try {
+    watchMtime = fs.statSync(file).mtimeMs
+  } catch {
+    watchMtime = 0
+  }
+  if (!watchTimer) {
+    watchTimer = setInterval(() => {
+      if (!watchFile) return
+      try {
+        const st = fs.statSync(watchFile)
+        if (st.mtimeMs !== watchMtime) {
+          watchMtime = st.mtimeMs
+          emit('session:refresh', {
+            file: watchFile,
+            session: parseSessionFile(watchFile, { timeline: true })
+          })
+        }
+      } catch {
+        /* file may be mid-write; retry next tick */
+      }
+    }, 1000)
+  }
+})
+ipcMain.on('session:unwatch', () => {
+  watchFile = null
+})
+
+// ---- Interactive resume ---------------------------------------------------
+// Send a message to an existing session: `claude --resume <id> -p` reads the
+// prompt from stdin (so the message never touches the shell command line). The
+// reply is appended to the session's JSONL — the watcher above surfaces it.
+let sendChild = null
+ipcMain.handle('session:send', (_e, { sessionId, cwd, message }) => {
+  if (!sessionId || !message) return { ok: false, error: 'missing sessionId or message' }
+  try {
+    const child = spawn('claude', ['--resume', sessionId, '-p'], {
+      cwd: cwd || os.homedir(),
+      shell: true,
+      windowsHide: true
+    })
+    sendChild = child
+    emit('session:sendstatus', { sessionId, state: 'running' })
+    let stderr = ''
+    child.stderr.on('data', (d) => {
+      stderr += d.toString()
+    })
+    child.on('error', (err) => {
+      emit('session:sendstatus', { sessionId, state: 'error', error: err.message })
+      sendChild = null
+    })
+    child.on('exit', (code) => {
+      emit('session:sendstatus', {
+        sessionId,
+        state: code === 0 ? 'done' : 'error',
+        error: code === 0 ? null : stderr.slice(0, 400) || 'claude exited ' + code
+      })
+      sendChild = null
+    })
+    child.stdin.write(message)
+    child.stdin.end()
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+})
+
 // ---- Live session tracking ------------------------------------------------
 // The renderer launches `claude --session-id <uuid>` in the PTY and tells us the
 // uuid; we tail exactly that file and stream snapshots back via 'live:update'.
@@ -156,5 +236,13 @@ app.on('window-all-closed', () => {
     }
   }
   if (liveTracker) liveTracker.dispose()
+  if (watchTimer) clearInterval(watchTimer)
+  if (sendChild) {
+    try {
+      sendChild.kill()
+    } catch {
+      /* ignore */
+    }
+  }
   if (process.platform !== 'darwin') app.quit()
 })

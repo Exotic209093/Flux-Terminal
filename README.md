@@ -96,7 +96,14 @@ scripts/
       live — tokens, cost, cache %, tools, message count update as you work (incremental
       byte-offset tail; exact session-id correlation, no heuristic guessing).
 
+- [x] **Interactive sessions:** open a session and **send messages right in that window** —
+      it resumes that exact session (`claude --resume <id> -p`, prompt via stdin) and the
+      reply streams back into the timeline (file watcher re-parses on change). Auto-scrolls
+      to the bottom unless you scroll up, with a **↓ jump-to-latest** button. A **context-window
+      gauge** at the top shows how full the model's context is (e.g. 56% · 538K / 1M).
+
 ### Possible next steps
+- Skills section: list locally-installed skills (and optionally bundle some with the app)
 - Auto-detect / attach to a `claude` you started manually (not via the button)
 - Timeline scrubber / playback controls; collapse long thinking blocks
 - Render images embedded in tool results; syntax-highlight code in the replay

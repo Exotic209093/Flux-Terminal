@@ -34,6 +34,12 @@ export function projectName(cwd) {
   return parts[parts.length - 1] || cwd
 }
 
+/** Max context window (tokens) for a model id. Opus/Sonnet 4.x = 1M, Haiku = 200K. */
+export function modelContext(model) {
+  if (model && /haiku/i.test(model)) return 200_000
+  return 1_000_000
+}
+
 /** Short, friendly model label: "claude-opus-4-8" -> "Opus 4.8". */
 export function modelLabel(model) {
   if (!model) return ''

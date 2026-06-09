@@ -1,4 +1,5 @@
-import { formatTokens, totalTokens, modelLabel, projectName } from '../lib/format'
+import { useEffect, useRef, useState } from 'react'
+import { formatTokens, totalTokens, modelLabel, modelContext, projectName } from '../lib/format'
 import { estimateCost, formatUSD } from '../lib/pricing'
 
 function duration(start, end) {
@@ -42,7 +43,76 @@ function TimelineItem({ item }) {
   )
 }
 
-export default function SessionView({ detail, loading }) {
+export default function SessionView({ detail, loading, sendState, sendError, onSend }) {
+  const scrollRef = useRef(null)
+  const autoFollow = useRef(true)
+  const [showJump, setShowJump] = useState(false)
+  const [draft, setDraft] = useState('')
+  const [pending, setPending] = useState(null)
+  const prevSession = useRef(null)
+  const totalAtSend = useRef(0)
+
+  const timelineLen = detail && detail.timeline ? detail.timeline.length : 0
+  const sessionId = detail && detail.sessionId
+  const totalCount = detail && detail.counts ? detail.counts.total : 0
+
+  const scrollToBottom = () => {
+    const el = scrollRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }
+
+  // Auto-scroll: snap to bottom on a new session, or on growth while following.
+  useEffect(() => {
+    if (!detail || detail.ok === false) return
+    if (sessionId !== prevSession.current) {
+      prevSession.current = sessionId
+      autoFollow.current = true
+      setShowJump(false)
+      // wait a frame for the DOM to paint the (possibly long) timeline
+      requestAnimationFrame(scrollToBottom)
+    } else if (autoFollow.current) {
+      requestAnimationFrame(scrollToBottom)
+    }
+  }, [sessionId, timelineLen, pending, sendState, detail])
+
+  // Clear the optimistic bubble once the real turn has landed.
+  useEffect(() => {
+    if (pending != null && totalCount > totalAtSend.current) setPending(null)
+  }, [totalCount, pending])
+
+  const onScroll = () => {
+    const el = scrollRef.current
+    if (!el) return
+    const distance = el.scrollHeight - el.scrollTop - el.clientHeight
+    const atBottom = distance < 80
+    autoFollow.current = atBottom
+    setShowJump(!atBottom)
+  }
+
+  const jumpToLatest = () => {
+    autoFollow.current = true
+    setShowJump(false)
+    scrollToBottom()
+  }
+
+  const submit = () => {
+    const msg = draft.trim()
+    if (!msg || sendState === 'running') return
+    totalAtSend.current = totalCount
+    setPending(msg)
+    setDraft('')
+    autoFollow.current = true
+    setShowJump(false)
+    onSend(msg)
+  }
+
+  const onKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      submit()
+    }
+  }
+
   if (loading) return <div className="sv-empty">Loading session…</div>
   if (!detail) return <div className="sv-empty">Select a session to relive it.</div>
   if (detail.ok === false) return <div className="sv-empty error">⚠ {detail.error}</div>
@@ -50,9 +120,10 @@ export default function SessionView({ detail, loading }) {
   const usage = detail.usage
   const cost = estimateCost(usage, detail.models && detail.models[0])
   const dur = duration(detail.firstTimestamp, detail.lastTimestamp)
-  const topTools = Object.entries(detail.tools || {})
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 6)
+
+  const ctx = detail.lastContextTokens || 0
+  const maxCtx = modelContext(detail.models && detail.models[0])
+  const ctxPct = Math.min(100, Math.round((ctx / maxCtx) * 100))
 
   return (
     <div className="session-view">
@@ -65,41 +136,73 @@ export default function SessionView({ detail, loading }) {
           {dur && <span>{dur}</span>}
         </div>
 
+        <div className="sv-context" title={`${ctx.toLocaleString()} of ${maxCtx.toLocaleString()} tokens`}>
+          <div className="sv-context-top">
+            <span className="sv-context-label">Context window</span>
+            <span className={'sv-context-pct' + (ctxPct >= 80 ? ' hot' : '')}>
+              {ctxPct}% · {formatTokens(ctx)} / {formatTokens(maxCtx)}
+            </span>
+          </div>
+          <div className="ctx-bar">
+            <span className={ctxPct >= 80 ? 'ctx-fill hot' : 'ctx-fill'} style={{ width: ctxPct + '%' }} />
+          </div>
+        </div>
+
         <div className="sv-stats">
           <Stat label="Messages" value={detail.counts.total} />
           <Stat label="Tools used" value={detail.counts.toolUse} />
           <Stat label="Total tokens" value={formatTokens(totalTokens(usage))} />
           <Stat label="Est. cost" value={formatUSD(cost.total)} accent />
         </div>
+      </div>
 
-        <div className="sv-tokens">
-          <TokenBar usage={usage} />
-          <div className="sv-token-legend">
-            <Legend cls="tk-cacheRead" label="cache read" v={usage.cacheRead} />
-            <Legend cls="tk-output" label="output" v={usage.output} />
-            <Legend cls="tk-cacheWrite" label="cache write" v={usage.cacheCreation} />
-            <Legend cls="tk-input" label="input" v={usage.input} />
-          </div>
+      <div className="sv-timeline-wrap">
+        <div className="sv-timeline" ref={scrollRef} onScroll={onScroll}>
+          {(detail.timeline || []).map((item, i) => (
+            <TimelineItem key={i} item={item} />
+          ))}
+          {pending && (
+            <div className="tl-item tl-user tl-pending">
+              <div className="tl-gutter">
+                <span className="tl-label">You</span>
+              </div>
+              <div className="tl-body">
+                <div className="tl-text">{pending}</div>
+              </div>
+            </div>
+          )}
+          {sendState === 'running' && (
+            <div className="tl-working">
+              <span className="live-dot" /> claude is working…
+            </div>
+          )}
+          {sendState === 'error' && <div className="tl-senderror">⚠ {sendError || 'send failed'}</div>}
         </div>
 
-        {topTools.length > 0 && (
-          <div className="sv-tools">
-            {topTools.map(([name, c]) => (
-              <span key={name} className="pill">
-                {name} <b>{c}</b>
-              </span>
-            ))}
-          </div>
+        {showJump && (
+          <button className="jump-latest" onClick={jumpToLatest} title="Jump to latest">
+            ↓
+          </button>
         )}
       </div>
 
-      <div className="sv-timeline">
-        {(detail.timeline || []).map((item, i) => (
-          <TimelineItem key={i} item={item} />
-        ))}
-        {(!detail.timeline || detail.timeline.length === 0) && (
-          <div className="sv-empty">No replayable events in this session.</div>
-        )}
+      <div className="sv-composer">
+        <textarea
+          className="composer-input"
+          placeholder="Message this session…  (Enter to send · Shift+Enter for newline)"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={onKeyDown}
+          rows={1}
+          disabled={sendState === 'running'}
+        />
+        <button
+          className="composer-send"
+          onClick={submit}
+          disabled={sendState === 'running' || !draft.trim()}
+        >
+          {sendState === 'running' ? '…' : 'Send'}
+        </button>
       </div>
     </div>
   )
@@ -111,27 +214,5 @@ function Stat({ label, value, accent }) {
       <div className="sv-stat-v">{value}</div>
       <div className="sv-stat-l">{label}</div>
     </div>
-  )
-}
-
-function TokenBar({ usage }) {
-  const total = totalTokens(usage) || 1
-  const seg = (v) => Math.max(0, (v / total) * 100)
-  return (
-    <div className="token-bar">
-      <span className="tk-cacheRead" style={{ width: seg(usage.cacheRead) + '%' }} />
-      <span className="tk-output" style={{ width: seg(usage.output) + '%' }} />
-      <span className="tk-cacheWrite" style={{ width: seg(usage.cacheCreation) + '%' }} />
-      <span className="tk-input" style={{ width: seg(usage.input) + '%' }} />
-    </div>
-  )
-}
-
-function Legend({ cls, label, v }) {
-  return (
-    <span className="legend">
-      <span className={'legend-dot ' + cls} />
-      {label} {formatTokens(v || 0)}
-    </span>
   )
 }

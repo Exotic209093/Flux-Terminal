@@ -69,6 +69,7 @@ function freshModel(file) {
     usage: emptyUsage(),
     tools: {},
     lastTool: null,
+    lastContextTokens: 0, // prompt size of the most recent assistant turn (= current context fill)
     lastUserPrompt: null,
     parseErrors: 0,
     lineCount: 0
@@ -103,6 +104,12 @@ function applyEvent(o, model, timeline) {
       const msg = o.message || {}
       if (msg.model) model.__models.add(msg.model)
       addUsage(model.usage, msg.usage)
+      const u = msg.usage
+      if (u) {
+        // Prompt tokens for this turn = current context fill; keep the latest.
+        model.lastContextTokens =
+          (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0)
+      }
       walkContent(o, model, timeline, 'assistant')
       break
     }

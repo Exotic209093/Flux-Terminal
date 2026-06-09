@@ -19,7 +19,20 @@ contextBridge.exposeInMainWorld('flux', {
   },
   sessions: {
     list: (opts) => ipcRenderer.invoke('sessions:list', opts),
-    read: (file) => ipcRenderer.invoke('session:read', file)
+    read: (file) => ipcRenderer.invoke('session:read', file),
+    send: (args) => ipcRenderer.invoke('session:send', args),
+    watch: (file) => ipcRenderer.send('session:watch', file),
+    unwatch: () => ipcRenderer.send('session:unwatch'),
+    onRefresh: (cb) => {
+      const listener = (_e, payload) => cb(payload)
+      ipcRenderer.on('session:refresh', listener)
+      return () => ipcRenderer.removeListener('session:refresh', listener)
+    },
+    onSendStatus: (cb) => {
+      const listener = (_e, payload) => cb(payload)
+      ipcRenderer.on('session:sendstatus', listener)
+      return () => ipcRenderer.removeListener('session:sendstatus', listener)
+    }
   },
   live: {
     track: (sessionId) => ipcRenderer.send('live:track', sessionId),

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import Sidebar from './components/Sidebar'
 import TerminalPane from './components/TerminalPane'
 import SessionView from './components/SessionView'
@@ -6,9 +6,9 @@ import StatsView from './components/StatsView'
 import LivePanel from './components/LivePanel'
 import { applyTheme, loadTheme, saveTheme } from './lib/themes'
 
-// Milestone 2: live terminal + session replay + cross-session stats + themes.
 // The terminal stays MOUNTED at all times so its PTY (and any running `claude`)
-// survives switching to a session/stats view and back.
+// survives switching to a session/stats view and back. Opening a session also
+// watches its file so newly-appended turns (e.g. from sending a message) stream in.
 export default function App() {
   const [sessions, setSessions] = useState([])
   const [sessionsLoading, setSessionsLoading] = useState(true)
@@ -17,9 +17,13 @@ export default function App() {
   const [selected, setSelected] = useState(null)
   const [detail, setDetail] = useState(null)
   const [loadingDetail, setLoadingDetail] = useState(false)
+  const [sendState, setSendState] = useState(null) // null | 'running' | 'error'
+  const [sendError, setSendError] = useState(null)
   const [view, setView] = useState('terminal') // 'terminal' | 'session' | 'stats'
 
   const [theme, setThemeState] = useState(loadTheme())
+
+  const openFileRef = useRef(null) // the file currently watched, for refresh matching
 
   useEffect(() => {
     applyTheme(theme)
@@ -51,11 +55,32 @@ export default function App() {
     }
   }, [])
 
+  // Live refresh of the open session + send-status updates.
+  useEffect(() => {
+    const offRefresh = window.flux.sessions.onRefresh(({ file, session }) => {
+      if (file === openFileRef.current && session && session.ok !== false) {
+        setDetail(session)
+      }
+    })
+    const offStatus = window.flux.sessions.onSendStatus(({ state, error }) => {
+      setSendState(state === 'running' ? 'running' : state === 'error' ? 'error' : null)
+      setSendError(state === 'error' ? error : null)
+    })
+    return () => {
+      offRefresh()
+      offStatus()
+    }
+  }, [])
+
   const openSession = useCallback((s) => {
     setSelected(s)
     setView('session')
     setDetail(null)
     setLoadingDetail(true)
+    setSendState(null)
+    setSendError(null)
+    openFileRef.current = s.file
+    window.flux.sessions.watch(s.file)
     window.flux.sessions
       .read(s.file)
       .then((res) => {
@@ -67,6 +92,27 @@ export default function App() {
         setLoadingDetail(false)
       })
   }, [])
+
+  const sendMessage = useCallback(
+    (message) => {
+      if (!selected || !detail || sendState === 'running') return
+      setSendState('running')
+      setSendError(null)
+      window.flux.sessions
+        .send({ sessionId: detail.sessionId || selected.sessionId, cwd: detail.cwd, message })
+        .then((res) => {
+          if (!res.ok) {
+            setSendState('error')
+            setSendError(res.error || 'failed to start claude')
+          }
+        })
+        .catch((e) => {
+          setSendState('error')
+          setSendError(String(e))
+        })
+    },
+    [selected, detail, sendState]
+  )
 
   return (
     <div className="app-shell">
@@ -113,7 +159,13 @@ export default function App() {
         </div>
         {view === 'session' && (
           <div className="pane-slot">
-            <SessionView detail={detail} loading={loadingDetail} />
+            <SessionView
+              detail={detail}
+              loading={loadingDetail}
+              sendState={sendState}
+              sendError={sendError}
+              onSend={sendMessage}
+            />
           </div>
         )}
         {view === 'stats' && (
