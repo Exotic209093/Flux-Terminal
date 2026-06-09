@@ -298,12 +298,24 @@ app.whenReady().then(() => {
     const shotPath = process.env.FLUX_SMOKE_SHOT
     const wc = mainWindow.webContents
     const wait = (ms) => new Promise((r) => setTimeout(r, ms))
+    // The sidebar appears only after every session file is parsed, which grows
+    // with transcript size — poll for the selector instead of guessing a delay.
+    const waitFor = async (selector, ms) => {
+      const deadline = Date.now() + ms
+      while (Date.now() < deadline) {
+        const found = await wc.executeJavaScript(`!!document.querySelector(${JSON.stringify(selector)})`)
+        if (found) return true
+        await wait(250)
+      }
+      return false
+    }
     wc.once('did-finish-load', async () => {
       try {
         await wait(2500)
         if (process.env.FLUX_SMOKE_VIEW === 'stats') {
           await wc.executeJavaScript("document.querySelector('.stats-btn')?.click()")
         } else if (process.env.FLUX_SMOKE_VIEW === 'session') {
+          await waitFor('.session-card', 20000)
           await wc.executeJavaScript("document.querySelector('.session-card')?.click()")
         } else if (process.env.FLUX_SMOKE_VIEW === 'skills') {
           await wc.executeJavaScript(
