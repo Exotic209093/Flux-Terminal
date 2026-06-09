@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { formatTokens, totalTokens, modelLabel, modelContext, projectName } from '../lib/format'
 import { estimateCost, formatUSD } from '../lib/pricing'
+import { insertTemplate, nextPlaceholderRange } from '../lib/templates'
 import UsageBar from './UsageBar'
 import SlashMenu from './SlashMenu'
+import PromptMenu from './PromptMenu'
 import Lightbox from './Lightbox'
 import SubagentPanel from './SubagentPanel'
 
@@ -77,6 +79,10 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
   const [slashIndex, setSlashIndex] = useState(0)
   const [slashDismissed, setSlashDismissed] = useState(false)
   const [slashHint, setSlashHint] = useState(null)
+  const [prompts, setPrompts] = useState([])
+  const [promptIndex, setPromptIndex] = useState(0)
+  const [promptDismissed, setPromptDismissed] = useState(false)
+  const composerRef = useRef(null)
   const [lightbox, setLightbox] = useState(null)
   const [attachment, setAttachment] = useState(null) // { file, name }
   const fileInputRef = useRef(null)
@@ -120,6 +126,13 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
     })
   }, [sessionId]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Load saved prompts once; they change rarely so a single load is enough.
+  useEffect(() => {
+    window.flux.prompts.list().then((res) => {
+      if (res && res.ok) setPrompts(res.prompts)
+    })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Menu shows while the draft is just "/name-being-typed" (no whitespace yet).
   const slashFilter = /^\/\S*$/.test(draft) ? draft : null
   const slashItems =
@@ -127,6 +140,23 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
       ? commands.filter((c) => c.name.startsWith(slashFilter)).slice(0, 8)
       : []
   const slashSel = Math.max(0, Math.min(slashIndex, slashItems.length - 1))
+
+  // Prompt menu: ";;" at a word boundary (start-of-line or preceded by whitespace)
+  // followed by optional search text (no whitespace). Capture the trigger position.
+  // /(^|\s);;(\S*)$/ matches ";;" preceded by nothing or whitespace, optionally
+  // followed by a search prefix. m[1] = leading space (or ''), m[2] = search text.
+  const promptTrigger = (() => {
+    const m = /(^|\s);;(\S*)$/.exec(draft)
+    if (!m) return null
+    return { query: m[2], triggerStart: draft.length - 2 - m[2].length }
+  })()
+  const promptItems =
+    promptTrigger && !promptDismissed
+      ? prompts
+          .filter((p) => !promptTrigger.query || p.name.toLowerCase().includes(promptTrigger.query.toLowerCase()))
+          .slice(0, 8)
+      : []
+  const promptSel = Math.max(0, Math.min(promptIndex, promptItems.length - 1))
 
   const completeSlash = (c) => {
     if (c.interactive) {
@@ -152,6 +182,36 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
     setSlashDismissed(false)
     setSlashHint(null)
   }, [slashFilter]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const promptTriggerKey = promptTrigger ? promptTrigger.triggerStart : null
+
+  // Reset prompt menu when the trigger start position changes (new ";;" typed).
+  useEffect(() => {
+    setPromptIndex(0)
+    setPromptDismissed(false)
+  }, [promptTriggerKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const completePrompt = useCallback(
+    (p) => {
+      if (!promptTrigger) return
+      // Record the use and update local list
+      window.flux.prompts.used(p.id)
+      setPrompts((prev) => prev.map((x) => (x.id === p.id ? { ...x, uses: (x.uses || 0) + 1 } : x)))
+      // Insert template into draft, replacing ";;" trigger
+      const result = insertTemplate(draft, promptTrigger.triggerStart, p.body)
+      setDraft(result.value)
+      setPromptIndex(0)
+      // Focus and set selection after React re-renders
+      requestAnimationFrame(() => {
+        const el = composerRef.current
+        if (el) {
+          el.focus()
+          el.setSelectionRange(result.selectionStart, result.selectionEnd)
+        }
+      })
+    },
+    [draft, promptTrigger] // eslint-disable-line react-hooks/exhaustive-deps
+  )
 
   const onScroll = () => {
     const el = scrollRef.current
@@ -232,6 +292,46 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
         return
       }
     }
+
+    if (promptItems.length) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setPromptIndex((i) => Math.min(i + 1, promptItems.length - 1))
+        return
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setPromptIndex((i) => Math.max(i - 1, 0))
+        return
+      }
+      if (e.key === 'Enter') {
+        e.preventDefault()
+        completePrompt(promptItems[promptSel])
+        return
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        setPromptDismissed(true)
+        return
+      }
+    }
+
+    // Tab cycles to the next {{placeholder}} in the draft when the menu is closed.
+    if (e.key === 'Tab' && !slashItems.length && !promptItems.length) {
+      const el = composerRef.current
+      if (el) {
+        const range = nextPlaceholderRange(draft, el.selectionEnd)
+        if (range) {
+          e.preventDefault()
+          requestAnimationFrame(() => {
+            el.focus()
+            el.setSelectionRange(range.start, range.end)
+          })
+          return
+        }
+      }
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       submit()
@@ -267,6 +367,7 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
           </div>
         </div>
         <Composer
+          composerRef={composerRef}
           draft={draft}
           setDraft={setDraft}
           onKeyDown={onKeyDown}
@@ -276,6 +377,9 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
           slashSel={slashSel}
           completeSlash={completeSlash}
           slashHint={slashHint}
+          promptItems={promptItems}
+          promptSel={promptSel}
+          completePrompt={completePrompt}
           attachment={attachment}
           setAttachment={setAttachment}
           fileInputRef={fileInputRef}
@@ -367,6 +471,7 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
       </div>
 
       <Composer
+        composerRef={composerRef}
         draft={draft}
         setDraft={setDraft}
         onKeyDown={onKeyDown}
@@ -376,6 +481,9 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
         slashSel={slashSel}
         completeSlash={completeSlash}
         slashHint={slashHint}
+        promptItems={promptItems}
+        promptSel={promptSel}
+        completePrompt={completePrompt}
         attachment={attachment}
         setAttachment={setAttachment}
         fileInputRef={fileInputRef}
@@ -396,7 +504,7 @@ function Stat({ label, value, accent }) {
   )
 }
 
-function Composer({ draft, setDraft, onKeyDown, onSubmit, sendState, slashItems, slashSel, completeSlash, slashHint, attachment, setAttachment, fileInputRef, stashImage, onPaste }) {
+function Composer({ composerRef, draft, setDraft, onKeyDown, onSubmit, sendState, slashItems, slashSel, completeSlash, slashHint, promptItems, promptSel, completePrompt, attachment, setAttachment, fileInputRef, stashImage, onPaste }) {
   return (
     <div className="sv-composer">
       <button
@@ -431,9 +539,13 @@ function Composer({ draft, setDraft, onKeyDown, onSubmit, sendState, slashItems,
         {slashItems.length > 0 && (
           <SlashMenu items={slashItems} selected={slashSel} onPick={completeSlash} />
         )}
+        {promptItems.length > 0 && (
+          <PromptMenu items={promptItems} selected={promptSel} onPick={completePrompt} />
+        )}
         <textarea
+          ref={composerRef}
           className="composer-input"
-          placeholder="Message this session…  (Enter to send · Shift+Enter for newline · / for commands · paste images)"
+          placeholder="Message this session…  (Enter to send · Shift+Enter for newline · / for commands · ;; for prompts · paste images)"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={onKeyDown}
