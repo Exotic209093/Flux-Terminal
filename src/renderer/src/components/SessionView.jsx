@@ -3,6 +3,7 @@ import { formatTokens, totalTokens, modelLabel, modelContext, projectName } from
 import { estimateCost, formatUSD } from '../lib/pricing'
 import UsageBar from './UsageBar'
 import { useUsage } from '../lib/useUsage'
+import SlashMenu from './SlashMenu'
 
 function duration(start, end) {
   if (!start || !end) return null
@@ -59,6 +60,9 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
   const [showJump, setShowJump] = useState(false)
   const [draft, setDraft] = useState('')
   const [pending, setPending] = useState(null)
+  const [commands, setCommands] = useState([])
+  const [slashIndex, setSlashIndex] = useState(0)
+  const [slashDismissed, setSlashDismissed] = useState(false)
   const prevSession = useRef(null)
   const totalAtSend = useRef(0)
 
@@ -92,6 +96,34 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
     if (pending != null && totalCount > totalAtSend.current) setPending(null)
   }, [totalCount, pending])
 
+  // Slash commands are cwd-dependent (project commands), so refetch per session.
+  useEffect(() => {
+    if (!detail || detail.ok === false) return
+    const cwd = detail.firstCwd || detail.cwd
+    window.flux.commands.list(cwd).then((res) => {
+      if (res && res.ok) setCommands(res.commands)
+    })
+  }, [sessionId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Menu shows while the draft is just "/name-being-typed" (no whitespace yet).
+  const slashFilter = /^\/\S*$/.test(draft) ? draft : null
+  const slashItems =
+    slashFilter && !slashDismissed
+      ? commands.filter((c) => c.name.startsWith(slashFilter)).slice(0, 8)
+      : []
+  const slashSel = Math.max(0, Math.min(slashIndex, slashItems.length - 1))
+
+  const completeSlash = (c) => {
+    setDraft(c.name + ' ') // trailing space closes the menu (regex no longer matches)
+    setSlashIndex(0)
+  }
+
+  // Reset selection/dismissal when the filter changes.
+  useEffect(() => {
+    setSlashIndex(0)
+    setSlashDismissed(false)
+  }, [slashFilter]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const onScroll = () => {
     const el = scrollRef.current
     if (!el) return
@@ -119,6 +151,28 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
   }
 
   const onKeyDown = (e) => {
+    if (slashItems.length) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setSlashIndex((i) => Math.min(i + 1, slashItems.length - 1))
+        return
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setSlashIndex((i) => Math.max(i - 1, 0))
+        return
+      }
+      if (e.key === 'Tab' || e.key === 'Enter') {
+        e.preventDefault()
+        completeSlash(slashItems[slashSel])
+        return
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        setSlashDismissed(true)
+        return
+      }
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       submit()
@@ -201,15 +255,20 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
       </div>
 
       <div className="sv-composer">
-        <textarea
-          className="composer-input"
-          placeholder="Message this session…  (Enter to send · Shift+Enter for newline)"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={onKeyDown}
-          rows={1}
-          disabled={sendState === 'running'}
-        />
+        <div className="composer-mid">
+          {slashItems.length > 0 && (
+            <SlashMenu items={slashItems} selected={slashSel} onPick={completeSlash} />
+          )}
+          <textarea
+            className="composer-input"
+            placeholder="Message this session…  (Enter to send · Shift+Enter for newline · / for commands)"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={onKeyDown}
+            rows={1}
+            disabled={sendState === 'running'}
+          />
+        </div>
         <button
           className="composer-send"
           onClick={submit}
