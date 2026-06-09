@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { formatTokens, totalTokens, modelLabel, modelContext, projectName } from '../lib/format'
 import { estimateCost, formatUSD } from '../lib/pricing'
+import UsageBar from './UsageBar'
+import { useUsage } from '../lib/useUsage'
 
 function duration(start, end) {
   if (!start || !end) return null
@@ -59,6 +61,8 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
   const [pending, setPending] = useState(null)
   const prevSession = useRef(null)
   const totalAtSend = useRef(0)
+
+  const { usage: planUsage, refresh: refreshPlanUsage } = useUsage()
 
   const timelineLen = detail && detail.timeline ? detail.timeline.length : 0
   const sessionId = detail && detail.sessionId
@@ -155,6 +159,8 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
             <span className={ctxPct >= 80 ? 'ctx-fill hot' : 'ctx-fill'} style={{ width: ctxPct + '%' }} />
           </div>
         </div>
+
+        <UsageBar usage={planUsage} onRefresh={refreshPlanUsage} detailed />
 
         <div className="sv-stats">
           <Stat label="Messages" value={detail.counts.total} />
