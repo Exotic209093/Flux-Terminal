@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import ModelPicker from './ModelPicker'
 
 // Topbar control cluster: model picker, running-subagent badge, remote-control
@@ -6,6 +6,10 @@ import ModelPicker from './ModelPicker'
 // is true when a tracked claude is running in the terminal.
 export default function ControlBar({ model, onModel, agents, liveActive, onAgentsClick }) {
   const [remoteOn, setRemoteOn] = useState(false)
+  // When the live session ends, the toggle can no longer reflect remote state.
+  useEffect(() => {
+    if (!liveActive) setRemoteOn(false)
+  }, [liveActive])
   const toggleRemote = () => {
     if (!liveActive) return
     window.flux.pty.write('/remote-control\r')
