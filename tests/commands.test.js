@@ -76,6 +76,8 @@ test('interactive-only builtins are flagged; prompt-driven ones are not', () => 
   assert.strictEqual(byName['/model'].interactive, true)
   assert.strictEqual(byName['/compact'].interactive, false)
   assert.strictEqual(byName['/security-review'].interactive, false)
+  assert.strictEqual(byName['/pr-comments'].interactive, false)
+  assert.strictEqual(byName['/review'].interactive, false)
 })
 
 test('custom commands are interactive:false', () => {
