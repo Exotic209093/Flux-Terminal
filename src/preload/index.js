@@ -78,5 +78,11 @@ contextBridge.exposeInMainWorld('flux', {
       ipcRenderer.on('search:progress', listener)
       return () => ipcRenderer.removeListener('search:progress', listener)
     }
+  },
+  prompts: {
+    list: () => ipcRenderer.invoke('prompts:list'),
+    save: (data) => ipcRenderer.invoke('prompts:save', data),
+    delete: (id) => ipcRenderer.invoke('prompts:delete', id),
+    used: (id) => ipcRenderer.invoke('prompts:used', id)
   }
 })
