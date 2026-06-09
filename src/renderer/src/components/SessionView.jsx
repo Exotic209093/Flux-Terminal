@@ -4,6 +4,7 @@ import { estimateCost, formatUSD } from '../lib/pricing'
 import UsageBar from './UsageBar'
 import SlashMenu from './SlashMenu'
 import Lightbox from './Lightbox'
+import SubagentPanel from './SubagentPanel'
 
 function duration(start, end) {
   if (!start || !end) return null
@@ -325,6 +326,14 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
           <Stat label="Est. cost" value={formatUSD(cost.total)} accent />
         </div>
       </div>
+
+      {detail.file && (
+        <SubagentPanel
+          file={detail.file}
+          live={false}
+          renderTimeline={(items) => items.map((item, i) => <TimelineItem key={i} item={item} onImage={setLightbox} />)}
+        />
+      )}
 
       <div className="sv-timeline-wrap">
         <div className="sv-timeline" ref={scrollRef} onScroll={onScroll}>
