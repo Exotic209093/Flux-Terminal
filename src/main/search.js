@@ -18,85 +18,46 @@ const MAX_HITS = 200
 // ---- text extraction -------------------------------------------------------
 
 /**
- * Extract searchable text entries from a session file.
- * Each entry mirrors one timeline item: { idx, role, ts, text }.
- * Base64 image data is never included; tool names are included.
+ * Extract searchable text entries from a session file by driving the same
+ * parser that SessionView uses. Each entry corresponds to exactly one
+ * parser timeline item at index i, so msgIdx == i is the correct
+ * `.tl-item` offset for scrolling.
+ *
+ * image items are skipped (no base64 in search text); tool_use entries
+ * include the tool name + a short input preview so tool queries work.
  * Returns [] on any read/parse error.
  */
-function extractEntries(filePath, injectedFs) {
-  const io = injectedFs || fs
-  let raw = ''
-  try {
-    raw = io.readFileSync(filePath, 'utf-8')
-  } catch {
-    return []
-  }
+function extractEntries(filePath) {
+  const parsed = parseSessionFile(filePath, { timeline: true })
+  if (!parsed || !parsed.ok || !Array.isArray(parsed.timeline)) return []
 
   const entries = []
-  const lines = raw.split('\n')
+  for (let i = 0; i < parsed.timeline.length; i++) {
+    const item = parsed.timeline[i]
+    if (!item) continue
 
-  for (const line of lines) {
-    const s = line.trim()
-    if (!s) continue
-    let o
-    try {
-      o = JSON.parse(s)
-    } catch {
-      continue
-    }
-    if (!o || typeof o !== 'object') continue
+    // Skip image items — they carry no searchable text and may hold base64
+    if (item.kind === 'image') continue
 
-    // We only care about user/assistant turns
-    if (o.type !== 'user' && o.type !== 'assistant') continue
-
-    const role = o.type
-    const ts = o.timestamp || null
-    const content = o.message && o.message.content
-
-    const parts = []
-
-    if (role === 'user' && typeof content === 'string') {
-      // Simple string user message
-      parts.push(content)
-    } else if (Array.isArray(content)) {
-      for (const block of content) {
-        if (!block || typeof block !== 'object') continue
-        switch (block.type) {
-          case 'text':
-            if (typeof block.text === 'string') parts.push(block.text)
-            break
-          case 'thinking':
-            if (typeof block.thinking === 'string') parts.push(block.thinking)
-            break
-          case 'tool_use':
-            // Include tool name so queries like "Bash" or "Read" match
-            if (block.name) parts.push(block.name)
-            break
-          case 'tool_result': {
-            const inner = Array.isArray(block.content) ? block.content : null
-            if (inner) {
-              for (const b of inner) {
-                if (b && b.type === 'text' && typeof b.text === 'string') parts.push(b.text)
-                // images: skip (no base64)
-              }
-            } else if (typeof block.content === 'string') {
-              parts.push(block.content)
-            }
-            break
-          }
-          // image blocks: explicitly skip — never include base64 data
-          default:
-            break
-        }
-      }
+    let text = ''
+    if (item.kind === 'tool_use') {
+      // "Bash ls -la" — tool name + input preview so "Bash" / "Read" queries land
+      text = item.toolName || ''
+      if (item.toolInput) text += ' ' + item.toolInput
+    } else {
+      text = item.text || ''
     }
 
-    if (parts.length === 0) continue
+    if (!text.trim()) continue
 
-    let text = parts.join(' ')
     if (text.length > ENTRY_TEXT_CAP) text = text.slice(0, ENTRY_TEXT_CAP) + '…'
 
-    entries.push({ idx: entries.length, role, ts, text })
+    entries.push({
+      idx: i,
+      role: item.kind,   // user | text | thinking | tool_use | tool_result
+      ts: item.ts || null,
+      text
+    })
   }
 
   return entries
@@ -105,11 +66,11 @@ function extractEntries(filePath, injectedFs) {
 // ---- cache ------------------------------------------------------------------
 
 /** Build a fresh cache object for a session file + its stat. */
-function buildCache(filePath, stat, injectedFs) {
+function buildCache(filePath, stat) {
   return {
     mtimeMs: stat.mtimeMs,
     size: stat.size,
-    entries: extractEntries(filePath, injectedFs)
+    entries: extractEntries(filePath)
   }
 }
 
@@ -150,8 +111,8 @@ function loadOrBuildCache(sessionId, filePath, stat, fakeFs) {
     }
   }
 
-  // Build and persist; pass io so extractEntries uses the same fs facade
-  const fresh = buildCache(filePath, stat, io)
+  // Build and persist
+  const fresh = buildCache(filePath, stat)
   try {
     io.mkdirSync(io.cacheDir, { recursive: true })
     io.writeFileSync(cacheFile, JSON.stringify(fresh))

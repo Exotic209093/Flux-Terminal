@@ -406,3 +406,102 @@ test('buildCache: returns object with entries, mtimeMs, size', () => {
   assert.strictEqual(cache.mtimeMs, stat.mtimeMs)
   assert.strictEqual(cache.size, stat.size)
 })
+
+// ============================================================================
+// 4. idx alignment with parser timeline (the integration invariant)
+// ============================================================================
+
+// Pull in the parser so this test can construct the ground-truth timeline
+// independently and compare directly — locking the invariant.
+const { parseSessionFile } = require('../src/main/parser')
+
+const PNG_B64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
+
+test('extractEntries idx aligns with parser timeline for multi-block message + image', () => {
+  const dir = tmpdir()
+  // A session with:
+  //   line 0: user text message
+  //   line 1: assistant with text + tool_use + tool_result blocks + an image
+  // The parser emits one .tl-item per block; extractEntries must use the same
+  // indices so scrolling to msgIdx lands on the right DOM node.
+  const file = writeSession(dir, 'multi.jsonl', [
+    {
+      type: 'user',
+      timestamp: '2026-01-01T00:00:00Z',
+      message: { content: 'please run the tests' }
+    },
+    {
+      type: 'assistant',
+      timestamp: '2026-01-01T00:00:01Z',
+      message: {
+        content: [
+          { type: 'text', text: 'Sure, running tests now.' },
+          { type: 'tool_use', id: 'tu1', name: 'Bash', input: { command: 'npm test' } },
+          {
+            type: 'tool_result',
+            tool_use_id: 'tu1',
+            content: [{ type: 'text', text: 'all tests passed' }]
+          },
+          // image block — must be skipped by extractEntries (no base64 in search)
+          { type: 'image', source: { type: 'base64', media_type: 'image/png', data: PNG_B64 } },
+          { type: 'text', text: 'All done.' }
+        ]
+      }
+    }
+  ])
+
+  // Ground truth: the same timeline the renderer uses
+  const parsed = parseSessionFile(file, { timeline: true })
+  assert.ok(parsed.ok, 'parser failed: ' + parsed.error)
+  const timeline = parsed.timeline
+
+  const entries = extractEntries(file)
+
+  // Every entry must point to the exact item in the parser's timeline
+  for (const entry of entries) {
+    const tlItem = timeline[entry.idx]
+    assert.ok(tlItem, `no timeline item at idx ${entry.idx}`)
+    // The entry text must come from that specific item, not some other
+    if (tlItem.kind === 'tool_use') {
+      assert.ok(
+        entry.text.includes(tlItem.toolName),
+        `tool_use entry at idx ${entry.idx} missing tool name "${tlItem.toolName}"`
+      )
+    } else {
+      // For text/user/tool_result items, the entry text should be a prefix of
+      // (or equal to) the timeline item's text (cap may truncate)
+      const tlText = tlItem.text || ''
+      const entryNoEllipsis = entry.text.replace(/…$/, '')
+      assert.ok(
+        tlText.startsWith(entryNoEllipsis) || entryNoEllipsis.startsWith(tlText.slice(0, 20)),
+        `entry at idx ${entry.idx} text mismatch:\n  entry:    ${entry.text.slice(0, 60)}\n  timeline: ${tlText.slice(0, 60)}`
+      )
+    }
+  }
+
+  // image items must NOT appear in entries (no base64 in search index)
+  const imageTimelineIndices = timeline
+    .map((item, i) => (item.kind === 'image' ? i : -1))
+    .filter((i) => i !== -1)
+  for (const imgIdx of imageTimelineIndices) {
+    assert.ok(
+      !entries.some((e) => e.idx === imgIdx),
+      `image timeline item at idx ${imgIdx} must not appear in search entries`
+    )
+  }
+
+  // Spot-check: the 'Bash' tool_use must be findable and its idx must point
+  // to the tool_use item in the timeline
+  const bashEntry = entries.find((e) => e.text.includes('Bash'))
+  assert.ok(bashEntry, 'expected a Bash tool_use entry')
+  assert.strictEqual(timeline[bashEntry.idx].kind, 'tool_use')
+  assert.strictEqual(timeline[bashEntry.idx].toolName, 'Bash')
+
+  // Spot-check: 'All done.' text entry idx must point to that exact text item
+  const allDoneEntry = entries.find((e) => e.text.includes('All done'))
+  assert.ok(allDoneEntry, 'expected an "All done" text entry')
+  assert.ok(
+    (timeline[allDoneEntry.idx].text || '').includes('All done'),
+    `timeline[${allDoneEntry.idx}] should be the "All done" text block`
+  )
+})
