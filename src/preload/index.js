@@ -84,5 +84,25 @@ contextBridge.exposeInMainWorld('flux', {
     save: (data) => ipcRenderer.invoke('prompts:save', data),
     delete: (id) => ipcRenderer.invoke('prompts:delete', id),
     used: (id) => ipcRenderer.invoke('prompts:used', id)
+  },
+  settings: {
+    get: () => ipcRenderer.invoke('settings:get'),
+    setNotify: (key, value) => ipcRenderer.invoke('settings:setNotify', { key, value })
+  },
+  notify: {
+    setOpenSession: (sessionId) => ipcRenderer.send('notify:setOpenSession', sessionId),
+    onOpenSession: (cb) => {
+      const listener = (_e, payload) => cb(payload)
+      ipcRenderer.on('notify:open-session', listener)
+      return () => ipcRenderer.removeListener('notify:open-session', listener)
+    }
+  },
+  missioncontrol: {
+    list: () => ipcRenderer.invoke('missioncontrol:list'),
+    onUpdate: (cb) => {
+      const listener = (_e, cards) => cb(cards)
+      ipcRenderer.on('missioncontrol:update', listener)
+      return () => ipcRenderer.removeListener('missioncontrol:update', listener)
+    }
   }
 })

@@ -26,7 +26,12 @@ export default defineConfig({
           commands: resolve('src/main/commands.js'),
           subagents: resolve('src/main/subagents.js'),
           search: resolve('src/main/search.js'),
-          prompts: resolve('src/main/prompts.js')
+          prompts: resolve('src/main/prompts.js'),
+          settings: resolve('src/main/settings.js'),
+          attention: resolve('src/main/attention.js'),
+          monitor: resolve('src/main/monitor.js'),
+          notify: resolve('src/main/notify.js'),
+          missioncontrol: resolve('src/main/missioncontrol.js')
         },
         output: {
           entryFileNames: '[name].js'

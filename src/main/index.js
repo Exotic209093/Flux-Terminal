@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron')
+const { app, BrowserWindow, ipcMain, dialog, Notification } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const os = require('os')
@@ -13,6 +13,9 @@ const { listCommands } = require('./commands')
 const { listSubagents, readSubagent } = require('./subagents')
 const { search, getCacheDir } = require('./search')
 const { PromptStore } = require('./prompts')
+const { SettingsStore } = require('./settings')
+const { SessionMonitor } = require('./monitor')
+const { Notifier } = require('./notify')
 
 let mainWindow = null
 let ptyProc = null
@@ -21,6 +24,10 @@ let usagePoller = null
 
 // Prompt library — path is set in whenReady once app.getPath() is available.
 let promptStore = null
+let settingsStore = null
+let sessionMonitor = null
+let notifier = null
+let openSessionId = null // which session the renderer currently has open (for not-suppression)
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -200,6 +207,31 @@ ipcMain.handle('prompts:used', (_e, id) => {
     return { ok: true }
   } catch (err) {
     return { ok: false, error: err.message }
+  }
+})
+
+// ---- Notification settings --------------------------------------------------
+ipcMain.handle('settings:get', () => (settingsStore ? settingsStore.get() : null))
+ipcMain.handle('settings:setNotify', (_e, { key, value }) => {
+  try {
+    if (!settingsStore) return { ok: false, error: 'not ready' }
+    return { ok: true, settings: settingsStore.setNotify(key, value) }
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+})
+
+// Renderer tells main which session is open so we don't toast about it while it's focused.
+ipcMain.on('notify:setOpenSession', (_e, sessionId) => {
+  openSessionId = sessionId || null
+})
+
+// ---- Mission Control --------------------------------------------------------
+ipcMain.handle('missioncontrol:list', () => {
+  try {
+    return { ok: true, cards: sessionMonitor ? sessionMonitor.cards() : [] }
+  } catch (err) {
+    return { ok: false, error: err.message, cards: [] }
   }
 })
 
@@ -435,13 +467,42 @@ app.whenReady().then(() => {
   promptStore = new PromptStore(path.join(app.getPath('userData'), 'prompts.json'))
   promptStore.seed()
 
+  settingsStore = new SettingsStore(path.join(app.getPath('userData'), 'settings.json'))
+
+  notifier = new Notifier({
+    getWindow: () => mainWindow,
+    getSettings: () => settingsStore.get(),
+    getOpenSessionId: () => openSessionId,
+    NotificationImpl: Notification,
+    beep: () => require('electron').shell.beep()
+  })
+
+  sessionMonitor = new SessionMonitor({
+    getOpenSessionId: () => openSessionId,
+    onAttention: (notice) => notifier.deliver(notice),
+    onCards: (cards) => emit('missioncontrol:update', cards)
+  })
+  sessionMonitor.start()
+
+  // Clear badge/flash when the user comes back to the window.
+  mainWindow.on('focus', () => notifier && notifier.clear())
+
   liveTracker = new LiveTracker((snapshot) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('live:update', snapshot)
     }
   })
 
-  usagePoller = new UsagePoller((snap) => emit('usage:update', snap))
+  const { createUsageState, observeUsage } = require('./attention')
+  const usageAttn = createUsageState()
+  usagePoller = new UsagePoller((snap) => {
+    emit('usage:update', snap)
+    if (snap && snap.windows && notifier) {
+      for (const event of observeUsage(usageAttn, snap.windows, Date.now())) {
+        notifier.deliver({ sessionId: 'usage', project: '', title: 'Plan usage', event })
+      }
+    }
+  })
   usagePoller.start()
 
   // Debug screenshot of the REAL app (real window + real IPC handlers). Set:
@@ -518,6 +579,7 @@ app.on('window-all-closed', () => {
   }
   if (liveTracker) liveTracker.dispose()
   if (usagePoller) usagePoller.stop()
+  if (sessionMonitor) sessionMonitor.stop()
   if (watchTimer) clearInterval(watchTimer)
   if (sendChild) {
     try {
