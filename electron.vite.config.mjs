@@ -24,7 +24,9 @@ export default defineConfig({
           skills: resolve('src/main/skills.js'),
           usage: resolve('src/main/usage.js'),
           commands: resolve('src/main/commands.js'),
-          subagents: resolve('src/main/subagents.js')
+          subagents: resolve('src/main/subagents.js'),
+          search: resolve('src/main/search.js'),
+          prompts: resolve('src/main/prompts.js')
         },
         output: {
           entryFileNames: '[name].js'
