@@ -135,6 +135,10 @@ scripts/
       profiles (restored as fresh shells on relaunch), and per-pane scrollback search
       (Ctrl+F); the tracked-`claude` live bar stays docked above the tabs.
 
+- [x] **A+B polish:** validated error detection, a ⚙ test-notification button + mute, an
+      in-memory notification history with a topbar 🔔 bell, and Mission Control cards with
+      exact cost + All/Needs-you/Running filter + manual refresh.
+
 ### Possible next steps
 - Timeline scrubber / playback controls; collapse long thinking blocks
 - Syntax-highlight code in the replay

@@ -1,7 +1,7 @@
 # Notifications & Mission Control polish — design
 
 **Date:** 2026-06-10
-**Status:** approved (James) — ready to plan. Polish pass over Milestones A (watcher+notifications) and B (Mission Control), both already merged to main.
+**Status:** implemented 2026-06-10 (see `docs/superpowers/plans/2026-06-10-notifications-mission-polish.md`). Error detection validated against real transcripts; notify history/test/mute, richer titles, topbar bell, and Mission Control exact-cost + filter + refresh all shipped.
 
 ## Goal
 
