@@ -1,9 +1,10 @@
 # Milestone E — Terminal quality-of-life: tabs, split, profiles, scrollback search
 
 **Date:** 2026-06-10
-**Status:** approved direction; DEPENDS ON Milestone B (Mission Control) being merged —
-it reshapes top-level layout. Implementor: read the as-landed layout in `App.jsx`
-before starting and adapt.
+**Status:** design approved 2026-06-10 (James), ready to plan. Milestone B is merged.
+See "Implementation decisions (as-landed)" at the bottom — the spec's assumption that
+`pty:spawn` already keys streams by id is WRONG; the PTY bridge is single-PTY and must
+be reworked. Build order + adapted decisions are recorded there.
 
 ## Goal
 
@@ -52,3 +53,37 @@ multiple shells, side-by-side panes, saved launch profiles, scrollback search.
 
 - No detachable windows, no pane zoom, no >2 panes per tab, no session restore of
   live shell contents, no tmux-style persistence.
+
+## Implementation decisions (as-landed, 2026-06-10)
+
+Confirmed with James after reading the shipped code:
+
+1. **PTY bridge must be reworked (mandatory).** The spec assumed `pty:spawn` keyed
+   streams by id — it does NOT. Today `index.js` holds one `ptyProc`; `pty:spawn` kills
+   the previous one and `pty:data`/`pty:exit` carry no id. Introduce a testable
+   `ptyManager` (main) holding `Map<id, pty>` with `spawn({id,cwd,shell,cols,rows})`,
+   `write(id,data)`, `resize(id,size)`, `kill(id)`, `killAll()`. IPC + preload become
+   id-addressed (`pty:data`/`pty:exit` carry `{id,…}`; renderer filters by its pane id).
+   `pty:kill` added. App-quit kills all.
+2. **Tracked-claude live bar stays docked above the tabs** (James's choice). The
+   `LivePanel` remains at the top of the new `TerminalWorkspace`; "Launch tracked claude"
+   becomes the seeded **"claude (tracked)"** profile that opens a tab, writes
+   `claude --session-id <uuid>` to that tab's PTY, and starts the existing single
+   `LiveTracker`. One tracked session at a time (unchanged).
+3. **Restore tabs on launch** (James's choice) as FRESH shells in saved cwds (no
+   scrollback restore); no saved layout → one default "PowerShell (here)" tab. Layout
+   persisted debounced on change.
+4. **Extend `settings.js`** (vs a new store) to also hold `profiles[]` and the persisted
+   `workspace` layout, under the same versioned schema with their own getters/setters.
+5. **Tab/pane state is a pure reducer** in `src/renderer/src/lib/workspace.js`:
+   `{ tabs:[{id,title,panes:[{id,ptyId,profileId}],splitDir,ratio,activePaneId}], activeTabId }`.
+   Unit-tested for every transition (new/close tab, split, close pane incl. the focused
+   pane of a split, focus-move, next-tab cycle, setRatio, rename).
+6. **Components:** `TerminalPane.jsx` refactored to `{ptyId,profile,active,theme}` (owns one
+   PTY + its scrollback search); new `TerminalWorkspace.jsx` owns the reducer, renders
+   docked LivePanel → tab bar (title, ×, dbl-click rename, + with profile dropdown) →
+   active tab's pane layout (split = flex row/col + draggable divider, ratio persisted);
+   background tabs stay mounted-but-hidden so PTYs keep running.
+7. **Build order (shippable checkpoints):** ① ptyManager rework (single tab still works)
+   → ② tabs + TerminalWorkspace shell *(tabs shippable)* → ③ split panes → ④ profiles +
+   restore → ⑤ scrollback search (`@xterm/addon-search`).
