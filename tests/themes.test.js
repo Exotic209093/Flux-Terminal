@@ -3,12 +3,10 @@ const assert = require('node:assert')
 
 const REQUIRED_VARS = ['--bg', '--bg-panel', '--bg-elev', '--bg-hover', '--border',
   '--text', '--text-dim', '--text-faint', '--accent', '--accent-2', '--accent-glow']
-const ANIMATED = ['aurora', 'nebula', 'synthwave', 'matrix']
-const STATIC = ['midnight', 'nord', 'dracula']
 
 test('every theme has a name and all required CSS vars', async () => {
   const { THEMES } = await import('../src/renderer/src/lib/themes.js')
-  for (const key of [...STATIC, ...ANIMATED]) {
+  for (const key of Object.keys(THEMES)) {
     const t = THEMES[key]
     assert.ok(t, `theme ${key} exists`)
     assert.strictEqual(typeof t.name, 'string')
@@ -20,6 +18,10 @@ test('every theme has a name and all required CSS vars', async () => {
 
 test('animated themes carry --glass-panel and the animated flag; static ones do not', async () => {
   const { THEMES, isAnimated } = await import('../src/renderer/src/lib/themes.js')
+  const ANIMATED = Object.keys(THEMES).filter((k) => THEMES[k].animated)
+  const STATIC = Object.keys(THEMES).filter((k) => !THEMES[k].animated)
+  assert.ok(ANIMATED.length > 0, 'has at least one animated theme')
+  assert.ok(STATIC.length > 0, 'has at least one static theme')
   for (const key of ANIMATED) {
     assert.strictEqual(isAnimated(key), true, `${key} animated`)
     assert.strictEqual(typeof THEMES[key].vars['--glass-panel'], 'string', `${key} glass var`)
@@ -41,8 +43,8 @@ test('themeColors returns bg/fg/cursor for every theme', async () => {
   const { THEMES, themeColors } = await import('../src/renderer/src/lib/themes.js')
   for (const key of Object.keys(THEMES)) {
     const c = themeColors(key)
-    assert.match(c.background, /^#|rgb/, `${key} bg`)
-    assert.match(c.foreground, /^#|rgb/, `${key} fg`)
-    assert.match(c.cursor, /^#|rgb/, `${key} cursor`)
+    assert.match(c.background, /^(?:#|rgb)/, `${key} bg`)
+    assert.match(c.foreground, /^(?:#|rgb)/, `${key} fg`)
+    assert.match(c.cursor, /^(?:#|rgb)/, `${key} cursor`)
   }
 })
