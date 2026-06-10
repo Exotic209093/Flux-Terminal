@@ -1,0 +1,26 @@
+appId: com.fluxterminal.app
+productName: Flux Terminal
+directories:
+  output: dist
+  buildResources: build
+files:
+  - out/**/*
+  - package.json
+asar: true
+# node-pty ships prebuilt binaries (prebuilds/win32-x64/*.node) that already work in dev.
+# Skip electron-builder's @electron/rebuild step: node-gyp cannot rebuild node-pty's winpty
+# dep from source when the project path contains a space ("Flux Terminal"), and a rebuild is
+# unnecessary since the prebuilt binaries are packed and unpacked from the asar below.
+npmRebuild: false
+asarUnpack:
+  - "**/node_modules/node-pty/**"
+win:
+  target:
+    - nsis
+  icon: build/icon.ico
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
