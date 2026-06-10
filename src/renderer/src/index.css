@@ -1847,3 +1847,111 @@ body,
 .mission-refresh { background: none; border: 1px solid var(--border); color: var(--text-dim); border-radius: 6px;
   padding: 2px 9px; cursor: pointer; font-size: 14px; }
 .mission-refresh:hover { color: var(--text); border-color: var(--accent); }
+
+/* ---- Animated themes (balanced glass) ----------------------------------- */
+:root { --glass-panel: rgba(14, 19, 32, 0.55); --glass-scrim: rgba(0, 0, 0, 0.22); }
+
+/* Fixed background layer, hidden unless an animated theme is active + motion on. */
+.theme-bg { display: none; position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+html[data-anim="on"] .theme-bg { display: block; }
+
+/* Let the fixed layer show through the app frame; terminal stays opaque (below). */
+html[data-anim="on"] body,
+html[data-anim="on"] #root,
+html[data-anim="on"] .app-shell,
+html[data-anim="on"] .main-pane,
+html[data-anim="on"] .pane-slot,
+html[data-anim="on"] .session-view,
+html[data-anim="on"] .stats-view,
+html[data-anim="on"] .skills-view,
+html[data-anim="on"] .mission { background: transparent; }
+
+/* Faint scrim on scrollable content areas so text stays readable over motion. */
+html[data-anim="on"] .sv-timeline,
+html[data-anim="on"] .stats-view,
+html[data-anim="on"] .skills-view,
+html[data-anim="on"] .mission { background: var(--glass-scrim); }
+
+/* Glass surfaces. */
+html[data-anim="on"] .sidebar,
+html[data-anim="on"] .topbar,
+html[data-anim="on"] .live-panel,
+html[data-anim="on"] .sv-header,
+html[data-anim="on"] .sv-composer,
+html[data-anim="on"] .big-stat,
+html[data-anim="on"] .stats-panel,
+html[data-anim="on"] .skill-card,
+html[data-anim="on"] .mcard,
+html[data-anim="on"] .prompt-card,
+html[data-anim="on"] .settings-pop,
+html[data-anim="on"] .bell-panel {
+  background: var(--glass-panel);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* Terminal viewport must stay fully opaque — crisp text, no xterm jank. */
+html[data-anim="on"] .terminal-host { background: var(--bg); }
+
+/* AURORA */
+html[data-theme="aurora"] .theme-bg {
+  background:
+    radial-gradient(60% 80% at 20% 30%, rgba(94, 234, 212, 0.5), transparent 60%),
+    radial-gradient(55% 70% at 82% 60%, rgba(167, 139, 250, 0.5), transparent 60%),
+    radial-gradient(70% 60% at 50% 95%, rgba(56, 224, 158, 0.4), transparent 60%), #06110f;
+  filter: blur(8px);
+  animation: aurora-drift 9s ease-in-out infinite alternate;
+}
+@keyframes aurora-drift {
+  0% { transform: translate3d(-6%, -4%, 0) scale(1.15); }
+  100% { transform: translate3d(6%, 5%, 0) scale(1.3); }
+}
+
+/* NEBULA */
+html[data-theme="nebula"] .theme-bg {
+  background:
+    radial-gradient(45% 55% at 70% 28%, rgba(214, 139, 255, 0.45), transparent 60%),
+    radial-gradient(55% 60% at 28% 72%, rgba(139, 156, 255, 0.4), transparent 62%), #070612;
+  background-size: 160% 160%;
+  animation: nebula-drift 14s ease-in-out infinite alternate;
+}
+@keyframes nebula-drift {
+  0% { background-position: 0% 0%; }
+  100% { background-position: 100% 100%; }
+}
+.theme-bg .star {
+  position: absolute; width: 2px; height: 2px; border-radius: 50%;
+  background: #fff; opacity: 0.2; animation: star-tw 2.4s ease-in-out infinite;
+}
+@keyframes star-tw { 0%, 100% { opacity: 0.2; } 50% { opacity: 1; } }
+
+/* SYNTHWAVE */
+html[data-theme="synthwave"] .theme-bg {
+  background: linear-gradient(#241038 0%, #3a1c5c 55%, #120a20 100%);
+}
+.theme-bg .sun {
+  position: absolute; left: 50%; top: 30%; width: 220px; height: 220px;
+  transform: translate(-50%, -50%); border-radius: 50%;
+  background: linear-gradient(#ffd36e, #ff5fa8 60%, #ff4fd8);
+  box-shadow: 0 0 80px rgba(255, 79, 216, 0.7);
+  animation: sun-pulse 2.6s ease-in-out infinite;
+}
+@keyframes sun-pulse { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.22); } }
+.theme-bg .grid {
+  position: absolute; left: -20%; right: -20%; bottom: 0; height: 45%;
+  background:
+    repeating-linear-gradient(to right, rgba(54, 224, 255, 0.5) 0 1px, transparent 1px 40px),
+    repeating-linear-gradient(to bottom, rgba(54, 224, 255, 0.5) 0 1px, transparent 1px 40px);
+  transform: perspective(220px) rotateX(62deg); transform-origin: bottom;
+  animation: grid-scroll 1.4s linear infinite;
+}
+@keyframes grid-scroll { from { background-position: 0 0, 0 0; } to { background-position: 0 40px, 0 40px; } }
+
+/* MATRIX (canvas does the rain) */
+html[data-theme="matrix"] .theme-bg { background: #050a05; }
+.theme-bg .matrix-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+/* Respect reduced motion: freeze all keyframe motion, keep static gradients. */
+@media (prefers-reduced-motion: reduce) {
+  .theme-bg, .theme-bg .star, .theme-bg .sun, .theme-bg .grid { animation: none !important; }
+}
