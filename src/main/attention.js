@@ -63,6 +63,8 @@ function observe(state, obs) {
   }
 
   // New assistant message closing an open turn → turn:finished if long enough.
+  // NB: this runs AFTER the error branch, which may have closed the turn — so an
+  // error+assistant in the same observation can't double-fire turn:finished.
   if (obs.assistantCount > state.lastAssistantCount && state.turnOpen) {
     const durationMs = ts - state.turnOpenedAt
     if (durationMs >= MIN_TURN_MS) events.push({ type: 'turn:finished', ts, durationMs })

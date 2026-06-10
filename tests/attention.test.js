@@ -65,6 +65,14 @@ test('a write (mtime change) resets the blocked clock', () => {
   assert.deepStrictEqual(ev, [])
 })
 
+test('a turn that opens and closes in the same observation never fires (duration 0)', () => {
+  const s = createAttentionState()
+  observe(s, obs(0, 0, 0, 0)) // baseline
+  const ev = observe(s, obs(500, 500, 1, 1)) // user+assistant both jump in one poll
+  assert.deepStrictEqual(ev, [])
+  assert.strictEqual(s.turnOpen, false)
+})
+
 test('usage:threshold fires once per window per reset cycle', () => {
   const us = createUsageState()
   const w = (u, resetsAt) => ({ fiveHour: { utilization: u, resetsAt }, sevenDay: null, sevenDayOpus: null, sevenDaySonnet: null })
