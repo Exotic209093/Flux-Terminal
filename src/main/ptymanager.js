@@ -34,7 +34,12 @@ class PtyManager {
 
   write(id, data) {
     const p = this.ptys.get(id)
-    if (p) p.write(data)
+    if (!p) return
+    try {
+      p.write(data)
+    } catch {
+      /* pty fd may have closed between the guard and the write (process-exit race) */
+    }
   }
 
   resize(id, cols, rows) {
