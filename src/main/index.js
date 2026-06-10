@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, Notification } = require('electron')
+const { app, BrowserWindow, ipcMain, dialog, Notification, nativeImage } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const os = require('os')
@@ -45,6 +45,12 @@ function createWindow() {
       backgroundThrottling: false
     }
   })
+
+  // Taskbar overlay "needs attention" dot for notify.js badge mode (alongside
+  // flashFrame). A small #f38ba8 circle baked in as a data URL — no asset file.
+  mainWindow.__fluxDot = nativeImage.createFromDataURL(
+    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAdklEQVR4nGP43L2CAQ0nfe5eseNz94q3n7tX/IfSO6Di6GoZkDkGn7tXnIRqwoVPQtVhGGCAZCMh/BbZEJgBhGzG5hK4AUkkaobhJJgBO8g0YAfMAGL9ji0swAaQoxmGqeMCisOA4ligOB1QJSVSnBeokhvJwgBc3NY+xPo8owAAAABJRU5ErkJggg=='
+  )
 
   // electron-vite sets ELECTRON_RENDERER_URL in dev (Vite dev server w/ HMR);
   // in production we load the built HTML from disk.
