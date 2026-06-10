@@ -536,6 +536,10 @@ app.whenReady().then(() => {
           await wc.executeJavaScript(
             "[...document.querySelectorAll('.tab')].find((b) => /Skills/.test(b.textContent))?.click()"
           )
+        } else if (process.env.FLUX_SMOKE_VIEW === 'mission') {
+          await wc.executeJavaScript(
+            "[...document.querySelectorAll('.tab')].find((b) => /Mission/.test(b.textContent))?.click()"
+          )
         }
         if (process.env.FLUX_SMOKE_THEME) {
           const t = JSON.stringify(process.env.FLUX_SMOKE_THEME)

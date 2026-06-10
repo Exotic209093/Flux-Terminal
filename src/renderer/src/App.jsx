@@ -4,6 +4,7 @@ import TerminalPane from './components/TerminalPane'
 import SessionView from './components/SessionView'
 import StatsView from './components/StatsView'
 import SkillsView from './components/SkillsView'
+import MissionControl from './components/MissionControl'
 import LivePanel from './components/LivePanel'
 import SearchOverlay from './components/SearchOverlay'
 import { applyTheme, loadTheme, saveTheme } from './lib/themes'
@@ -55,6 +56,9 @@ export default function App() {
       if (e.ctrlKey && e.shiftKey && e.key === 'F') {
         e.preventDefault()
         setSearchOpen((o) => !o)
+      } else if (e.ctrlKey && !e.shiftKey && (e.key === 'm' || e.key === 'M')) {
+        e.preventDefault()
+        setView((v) => (v === 'mission' ? 'terminal' : 'mission'))
       }
     }
     window.addEventListener('keydown', onKey)
@@ -130,6 +134,18 @@ export default function App() {
         setLoadingDetail(false)
       })
   }, [])
+
+  // A Mission Control card carries enough to open the session directly; if it's
+  // already in our list use that object, else synthesize the minimum openSession needs.
+  const openCard = useCallback(
+    (card) => {
+      const sess =
+        sessions.find((s) => s.sessionId === card.sessionId) ||
+        { sessionId: card.sessionId, file: card.file, title: card.title, cwd: card.cwd }
+      openSession(sess)
+    },
+    [sessions, openSession]
+  )
 
   const openSearchResult = useCallback(
     (sessionId, file, msgIdx) => {
@@ -266,6 +282,13 @@ export default function App() {
           >
             🧩 Skills
           </button>
+          <button
+            className={'tab' + (view === 'mission' ? ' active' : '')}
+            onClick={() => setView('mission')}
+            title="Mission Control — all active sessions (Ctrl+M)"
+          >
+            🛰 Mission
+          </button>
           {selected && (
             <button
               className={'tab' + (view === 'session' ? ' active' : '')}
@@ -315,6 +338,11 @@ export default function App() {
         {view === 'skills' && (
           <div className="pane-slot">
             <SkillsView />
+          </div>
+        )}
+        {view === 'mission' && (
+          <div className="pane-slot">
+            <MissionControl onOpenCard={openCard} />
           </div>
         )}
       </main>
