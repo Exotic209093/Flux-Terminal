@@ -50,8 +50,45 @@ export const THEMES = {
       '--accent-glow': 'rgba(189, 147, 249, 0.4)'
     }
   },
+  aurora: {
+    name: 'Aurora',
+    animated: true,
+    vars: {
+      '--bg': '#06110f',
+      '--bg-panel': '#0a1a16',
+      '--bg-elev': '#0e241e',
+      '--bg-hover': '#143029',
+      '--border': '#163a31',
+      '--text': '#d7f5ec',
+      '--text-dim': '#7fb8a9',
+      '--text-faint': '#4f8073',
+      '--accent': '#5eead4',
+      '--accent-2': '#a78bfa',
+      '--accent-glow': 'rgba(94, 234, 212, 0.4)',
+      '--glass-panel': 'rgba(6, 26, 22, 0.55)'
+    }
+  },
+  nebula: {
+    name: 'Nebula',
+    animated: true,
+    vars: {
+      '--bg': '#070612',
+      '--bg-panel': '#0c0a1d',
+      '--bg-elev': '#141128',
+      '--bg-hover': '#1d1838',
+      '--border': '#241f44',
+      '--text': '#e6e3ff',
+      '--text-dim': '#9a93c8',
+      '--text-faint': '#635c8f',
+      '--accent': '#8b9cff',
+      '--accent-2': '#d68bff',
+      '--accent-glow': 'rgba(139, 156, 255, 0.4)',
+      '--glass-panel': 'rgba(12, 10, 29, 0.55)'
+    }
+  },
   matrix: {
     name: 'Matrix',
+    animated: true,
     vars: {
       '--bg': '#050a05',
       '--bg-panel': '#081208',
@@ -63,11 +100,13 @@ export const THEMES = {
       '--text-faint': '#3c7a48',
       '--accent': '#39ff14',
       '--accent-2': '#a6ff8f',
-      '--accent-glow': 'rgba(57, 255, 20, 0.4)'
+      '--accent-glow': 'rgba(57, 255, 20, 0.4)',
+      '--glass-panel': 'rgba(8, 18, 8, 0.55)'
     }
   },
   synthwave: {
     name: 'Synthwave',
+    animated: true,
     vars: {
       '--bg': '#1a1025',
       '--bg-panel': '#1f1430',
@@ -79,20 +118,30 @@ export const THEMES = {
       '--text-faint': '#7a5a9c',
       '--accent': '#ff4fd8',
       '--accent-2': '#36e0ff',
-      '--accent-glow': 'rgba(255, 79, 216, 0.45)'
+      '--accent-glow': 'rgba(255, 79, 216, 0.45)',
+      '--glass-panel': 'rgba(31, 20, 48, 0.5)'
     }
   }
 }
 
 const STORAGE_KEY = 'flux.theme'
 
-export function applyTheme(key) {
+export function isAnimated(key) {
+  return !!(THEMES[key] && THEMES[key].animated)
+}
+
+export function shouldAnimate(key, motion) {
+  return isAnimated(key) && !!motion
+}
+
+export function applyTheme(key, { motion = true } = {}) {
   const theme = THEMES[key] || THEMES.midnight
   const root = document.documentElement
   for (const [k, v] of Object.entries(theme.vars)) {
     root.style.setProperty(k, v)
   }
   root.setAttribute('data-theme', key)
+  root.setAttribute('data-anim', shouldAnimate(key, motion) ? 'on' : 'off')
 }
 
 export function loadTheme() {
