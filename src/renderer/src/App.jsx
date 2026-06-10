@@ -27,6 +27,7 @@ export default function App() {
   const [sendError, setSendError] = useState(null)
   const [view, setView] = useState('terminal') // 'terminal' | 'session' | 'stats'
   const [newChat, setNewChat] = useState(null) // { cwd } when composing a new chat
+  const termPtyId = 'main-terminal' // Phase 1: one terminal; Task 4 replaces this with TerminalWorkspace
 
   const [theme, setThemeState] = useState(loadTheme())
 
@@ -304,14 +305,15 @@ export default function App() {
             agents={live && live.tracking ? live.subagents : null}
             liveActive={!!(live && live.tracking && live.state === 'live')}
             onAgentsClick={() => setView('terminal')}
+            ptyId={termPtyId}
           />
           <UsageBar />
         </div>
 
         {/* Terminal stays mounted; just hidden when not active. */}
         <div className="pane-slot" style={{ display: view === 'terminal' ? 'flex' : 'none' }}>
-          <LivePanel />
-          <TerminalPane theme={theme} />
+          <LivePanel ptyId={termPtyId} />
+          <TerminalPane ptyId={termPtyId} theme={theme} />
         </div>
         {view === 'session' && (
           <div className="pane-slot">

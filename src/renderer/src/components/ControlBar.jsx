@@ -5,7 +5,7 @@ import SettingsPopover from './SettingsPopover'
 // Topbar control cluster: model picker, running-subagent badge, remote-control
 // toggle. `agents` is the live summary { running, total } or null. `liveActive`
 // is true when a tracked claude is running in the terminal.
-export default function ControlBar({ model, onModel, agents, liveActive, onAgentsClick }) {
+export default function ControlBar({ model, onModel, agents, liveActive, onAgentsClick, ptyId }) {
   const [remoteOn, setRemoteOn] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   // When the live session ends, the toggle can no longer reflect remote state.
@@ -14,7 +14,7 @@ export default function ControlBar({ model, onModel, agents, liveActive, onAgent
   }, [liveActive])
   const toggleRemote = () => {
     if (!liveActive) return
-    window.flux.pty.write('/remote-control\r')
+    window.flux.pty.write(ptyId, '/remote-control\r')
     setRemoteOn((v) => !v)
   }
   const running = agents ? agents.running : 0

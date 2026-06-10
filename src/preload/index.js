@@ -3,16 +3,17 @@ const { contextBridge, ipcRenderer } = require('electron')
 // Safe, minimal bridge exposed to the renderer as `window.flux`.
 contextBridge.exposeInMainWorld('flux', {
   pty: {
-    spawn: (opts) => ipcRenderer.invoke('pty:spawn', opts),
-    write: (data) => ipcRenderer.send('pty:write', data),
-    resize: (size) => ipcRenderer.send('pty:resize', size),
+    spawn: (opts) => ipcRenderer.invoke('pty:spawn', opts), // opts: { id, cols, rows, cwd, shell }
+    write: (id, data) => ipcRenderer.send('pty:write', { id, data }),
+    resize: (id, size) => ipcRenderer.send('pty:resize', { id, cols: size.cols, rows: size.rows }),
+    kill: (id) => ipcRenderer.send('pty:kill', { id }),
     onData: (cb) => {
-      const listener = (_e, data) => cb(data)
+      const listener = (_e, payload) => cb(payload) // { id, data }
       ipcRenderer.on('pty:data', listener)
       return () => ipcRenderer.removeListener('pty:data', listener)
     },
     onExit: (cb) => {
-      const listener = (_e, code) => cb(code)
+      const listener = (_e, payload) => cb(payload) // { id, code }
       ipcRenderer.on('pty:exit', listener)
       return () => ipcRenderer.removeListener('pty:exit', listener)
     }

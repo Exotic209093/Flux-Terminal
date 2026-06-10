@@ -18,6 +18,7 @@ export default defineConfig({
         input: {
           index: resolve('src/main/index.js'),
           pty: resolve('src/main/pty.js'),
+          ptymanager: resolve('src/main/ptymanager.js'),
           sessions: resolve('src/main/sessions.js'),
           parser: resolve('src/main/parser.js'),
           live: resolve('src/main/live.js'),

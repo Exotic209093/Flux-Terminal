@@ -4,14 +4,14 @@ import { estimateCost, formatUSD } from '../lib/pricing'
 
 // Docked atop the Terminal view. Launches a tracked `claude` (exact session-id
 // correlation) and shows its stats updating live as you work.
-export default function LivePanel() {
+export default function LivePanel({ ptyId }) {
   const [live, setLive] = useState(null)
 
   useEffect(() => window.flux.live.onUpdate(setLive), [])
 
   const launch = () => {
     const uuid = crypto.randomUUID()
-    window.flux.pty.write(`claude --session-id ${uuid}\r`)
+    window.flux.pty.write(ptyId, `claude --session-id ${uuid}\r`)
     window.flux.live.track(uuid)
   }
   const stop = () => window.flux.live.stop()

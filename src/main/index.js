@@ -16,9 +16,10 @@ const { PromptStore } = require('./prompts')
 const { SettingsStore } = require('./settings')
 const { SessionMonitor } = require('./monitor')
 const { Notifier } = require('./notify')
+const { PtyManager } = require('./ptymanager')
 
 let mainWindow = null
-let ptyProc = null
+let ptyManager = null
 let liveTracker = null
 let usagePoller = null
 
@@ -61,41 +62,19 @@ function createWindow() {
   }
 }
 
-// ---- PTY bridge -----------------------------------------------------------
-ipcMain.handle('pty:spawn', (_e, opts) => {
-  if (ptyProc) {
-    try {
-      ptyProc.kill()
-    } catch {
-      /* ignore */
-    }
-  }
-  ptyProc = createPty(opts)
-  ptyProc.onData((data) => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('pty:data', data)
-    }
-  })
-  ptyProc.onExit(({ exitCode }) => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('pty:exit', exitCode)
-    }
-  })
-  return { pid: ptyProc.pid }
+// ---- PTY bridge (id-keyed; one pane === one pty) --------------------------
+ipcMain.handle('pty:spawn', (_e, { id, cols, rows, cwd, shell }) => {
+  if (ptyManager) ptyManager.spawn(id, { cols, rows, cwd, shell })
+  return { ok: true, id }
 })
-
-ipcMain.on('pty:write', (_e, data) => {
-  if (ptyProc) ptyProc.write(data)
+ipcMain.on('pty:write', (_e, { id, data }) => {
+  if (ptyManager) ptyManager.write(id, data)
 })
-
-ipcMain.on('pty:resize', (_e, { cols, rows }) => {
-  if (ptyProc) {
-    try {
-      ptyProc.resize(cols, rows)
-    } catch {
-      /* ignore transient resize errors */
-    }
-  }
+ipcMain.on('pty:resize', (_e, { id, cols, rows }) => {
+  if (ptyManager) ptyManager.resize(id, cols, rows)
+})
+ipcMain.on('pty:kill', (_e, { id }) => {
+  if (ptyManager) ptyManager.kill(id)
 })
 
 // ---- Sessions bridge ------------------------------------------------------
@@ -499,6 +478,11 @@ app.whenReady().then(() => {
     }
   })
 
+  ptyManager = new PtyManager({
+    onData: (id, data) => emit('pty:data', { id, data }),
+    onExit: (id, code) => emit('pty:exit', { id, code })
+  })
+
   const { createUsageState, observeUsage } = require('./attention')
   const usageAttn = createUsageState()
   usagePoller = new UsagePoller((snap) => {
@@ -580,13 +564,7 @@ app.on('will-quit', () => {
 })
 
 app.on('window-all-closed', () => {
-  if (ptyProc) {
-    try {
-      ptyProc.kill()
-    } catch {
-      /* ignore */
-    }
-  }
+  if (ptyManager) ptyManager.killAll()
   if (liveTracker) liveTracker.dispose()
   if (usagePoller) usagePoller.stop()
   if (sessionMonitor) sessionMonitor.stop()

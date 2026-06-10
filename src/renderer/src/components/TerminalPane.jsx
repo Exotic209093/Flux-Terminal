@@ -4,10 +4,9 @@ import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
 import { themeColors } from '../lib/themes'
 
-// The live terminal: a real PTY (node-pty/ConPTY) bridged through window.flux.
-// `theme` sets the xterm colors at mount (the app chrome restyles live; the
-// terminal canvas adopts a new theme on next mount).
-export default function TerminalPane({ theme }) {
+// One xterm bound to one PTY id. The PTY is spawned on mount and killed on
+// unmount. Data/exit events are filtered to this pane's id.
+export default function TerminalPane({ ptyId, theme, cwd, shell, onFocus }) {
   const hostRef = useRef(null)
 
   useEffect(() => {
@@ -29,19 +28,20 @@ export default function TerminalPane({ theme }) {
     term.open(hostRef.current)
     fit.fit()
 
-    window.flux.pty.spawn({ cols: term.cols, rows: term.rows })
-    const offData = window.flux.pty.onData((data) => term.write(data))
-    const offExit = window.flux.pty.onExit(() =>
-      term.write('\r\n\x1b[2m[process exited]\x1b[0m\r\n')
-    )
-    const onInput = term.onData((data) => window.flux.pty.write(data))
+    window.flux.pty.spawn({ id: ptyId, cols: term.cols, rows: term.rows, cwd, shell })
+    const offData = window.flux.pty.onData(({ id, data }) => {
+      if (id === ptyId) term.write(data)
+    })
+    const offExit = window.flux.pty.onExit(({ id }) => {
+      if (id === ptyId) term.write('\r\n\x1b[2m[process exited]\x1b[0m\r\n')
+    })
+    const onInput = term.onData((data) => window.flux.pty.write(ptyId, data))
 
     const syncSize = () => {
       fit.fit()
-      window.flux.pty.resize({ cols: term.cols, rows: term.rows })
+      window.flux.pty.resize(ptyId, { cols: term.cols, rows: term.rows })
     }
     window.addEventListener('resize', syncSize)
-    // Observe the container too (sidebar toggles, layout shifts), not just window.
     const ro = new ResizeObserver(() => syncSize())
     if (hostRef.current) ro.observe(hostRef.current)
     const t = setTimeout(syncSize, 60)
@@ -54,8 +54,9 @@ export default function TerminalPane({ theme }) {
       offExit()
       onInput.dispose()
       term.dispose()
+      window.flux.pty.kill(ptyId)
     }
-  }, [])
+  }, [ptyId])
 
-  return <div className="terminal-host" ref={hostRef} />
+  return <div className="terminal-host" ref={hostRef} onMouseDown={onFocus} />
 }
