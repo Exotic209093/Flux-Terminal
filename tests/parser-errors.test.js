@@ -20,3 +20,21 @@ test('applyEvent increments errorCount on error records only', () => {
   applyEvent({ type: 'result', is_error: true }, m, null)
   assert.strictEqual(m.errorCount, 2)
 })
+
+test('isErrorRecord matches a real API-error assistant record but NOT a synthetic non-error or a tool error', () => {
+  // Real shape observed in ~/.claude/projects: top-level isApiErrorMessage flag.
+  const apiError = {
+    type: 'assistant',
+    isApiErrorMessage: true,
+    message: { model: '<synthetic>', content: [{ type: 'text', text: 'API Error: Overloaded' }] }
+  }
+  const syntheticNonError = {
+    type: 'assistant',
+    isApiErrorMessage: false,
+    message: { model: '<synthetic>', content: [{ type: 'text', text: 'No response requested.' }] }
+  }
+  const toolError = { type: 'user', message: { content: [{ type: 'tool_result', is_error: true }] } }
+  assert.strictEqual(isErrorRecord(apiError), true)
+  assert.strictEqual(isErrorRecord(syntheticNonError), false) // <synthetic> alone is not an error
+  assert.strictEqual(isErrorRecord(toolError), false) // tool errors are not turn errors
+})
