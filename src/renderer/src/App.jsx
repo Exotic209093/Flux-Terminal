@@ -9,6 +9,7 @@ import SearchOverlay from './components/SearchOverlay'
 import { applyTheme, loadTheme, saveTheme } from './lib/themes'
 import UsageBar from './components/UsageBar'
 import ControlBar from './components/ControlBar'
+import NotificationBell from './components/NotificationBell'
 import { DEFAULT_MODEL, isKnownModel } from './lib/models'
 
 // The terminal stays MOUNTED at all times so its PTY (and any running `claude`)
@@ -306,6 +307,10 @@ export default function App() {
             onAgentsClick={() => setView('terminal')}
             ptyId={activePtyId}
           />
+          <NotificationBell onOpenSession={(id) => {
+            const sess = sessions.find((s) => s.sessionId === id)
+            if (sess) openSession(sess)
+          }} />
           <UsageBar />
         </div>
 
