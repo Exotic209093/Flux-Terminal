@@ -1,5 +1,5 @@
 // src/renderer/src/components/TerminalWorkspace.jsx
-import { useReducer, useEffect, useCallback } from 'react'
+import { useReducer, useEffect, useCallback, useRef } from 'react'
 import TerminalPane from './TerminalPane'
 import TabBar from './TabBar'
 import LivePanel from './LivePanel'
@@ -15,6 +15,7 @@ function freshSeed() {
 // LivePanel; "launch tracked claude" opens a tab and writes into its PTY.
 export default function TerminalWorkspace({ theme, onActivePty }) {
   const [state, dispatch] = useReducer(reducer, undefined, () => initialState(freshSeed()))
+  const pendingInput = useRef({})
 
   const activeTab = state.tabs.find((t) => t.id === state.activeTabId) || state.tabs[0]
   const activePane = activeTab && activeTab.panes.find((p) => p.id === activeTab.activePaneId)
@@ -34,12 +35,10 @@ export default function TerminalWorkspace({ theme, onActivePty }) {
 
   const launchTracked = useCallback(() => {
     const seed = { tabId: uid('t'), paneId: uid('pane'), ptyId: uid('pty'), profileId: 'claude', title: 'claude ✦' }
-    dispatch({ type: 'NEW_TAB', ...seed })
     const uuid = crypto.randomUUID()
-    setTimeout(() => {
-      window.flux.pty.write(seed.ptyId, `claude --session-id ${uuid}\r`)
-      window.flux.live.track(uuid)
-    }, 150)
+    pendingInput.current[seed.ptyId] = `claude --session-id ${uuid}\r`
+    dispatch({ type: 'NEW_TAB', ...seed })
+    window.flux.live.track(uuid)
   }, [])
 
   useEffect(() => {
@@ -81,6 +80,7 @@ export default function TerminalWorkspace({ theme, onActivePty }) {
                 <TerminalPane
                   ptyId={p.ptyId}
                   theme={theme}
+                  initialInput={pendingInput.current[p.ptyId]}
                   onFocus={() => dispatch({ type: 'FOCUS_PANE', paneId: p.id })}
                 />
               </div>

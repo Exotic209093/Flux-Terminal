@@ -6,7 +6,7 @@ import { themeColors } from '../lib/themes'
 
 // One xterm bound to one PTY id. The PTY is spawned on mount and killed on
 // unmount. Data/exit events are filtered to this pane's id.
-export default function TerminalPane({ ptyId, theme, cwd, shell, onFocus }) {
+export default function TerminalPane({ ptyId, theme, cwd, shell, initialInput, onFocus }) {
   const hostRef = useRef(null)
 
   useEffect(() => {
@@ -28,7 +28,11 @@ export default function TerminalPane({ ptyId, theme, cwd, shell, onFocus }) {
     term.open(hostRef.current)
     fit.fit()
 
-    window.flux.pty.spawn({ id: ptyId, cols: term.cols, rows: term.rows, cwd, shell })
+    let cancelled = false
+    window.flux.pty.spawn({ id: ptyId, cols: term.cols, rows: term.rows, cwd, shell }).then(() => {
+      if (cancelled) return
+      if (initialInput) window.flux.pty.write(ptyId, initialInput)
+    })
     const offData = window.flux.pty.onData(({ id, data }) => {
       if (id === ptyId) term.write(data)
     })
@@ -47,6 +51,7 @@ export default function TerminalPane({ ptyId, theme, cwd, shell, onFocus }) {
     const t = setTimeout(syncSize, 60)
 
     return () => {
+      cancelled = true
       clearTimeout(t)
       window.removeEventListener('resize', syncSize)
       ro.disconnect()
