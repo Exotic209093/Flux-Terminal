@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, Notification, nativeImage } = require('electron')
+const { app, BrowserWindow, ipcMain, dialog, Notification, nativeImage, protocol } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const os = require('os')
@@ -17,6 +17,7 @@ const { SettingsStore } = require('./settings')
 const { SessionMonitor } = require('./monitor')
 const { Notifier } = require('./notify')
 const { PtyManager } = require('./ptymanager')
+const { registerAppScheme, serveAppProtocol } = require('./appprotocol')
 
 let mainWindow = null
 let ptyManager = null
@@ -29,6 +30,10 @@ let settingsStore = null
 let sessionMonitor = null
 let notifier = null
 let openSessionId = null // which session the renderer currently has open (for not-suppression)
+
+// Must run before app is ready: make app:// a privileged scheme so the built
+// renderer's ES modules load (file:// blocks them by CORS — blank window).
+registerAppScheme(protocol)
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -58,7 +63,7 @@ function createWindow() {
   if (process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
+    mainWindow.loadURL('app://./index.html')
   }
 }
 
@@ -472,6 +477,7 @@ ipcMain.on('live:stop', () => {
 
 // ---- App lifecycle --------------------------------------------------------
 app.whenReady().then(() => {
+  serveAppProtocol(protocol, path.join(__dirname, '../renderer'))
   createWindow()
   promptStore = new PromptStore(path.join(app.getPath('userData'), 'prompts.json'))
   promptStore.seed()
