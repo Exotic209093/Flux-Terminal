@@ -96,3 +96,30 @@ test('sound beeps only when enabled', () => {
   makeNotifier(w).deliver({ sessionId: 's', title: 'x', event: { type: 'turn:error' } })
   assert.strictEqual(w.beeps, 1)
 })
+
+test('clicking a toast focuses the window and sends notify:open-session', () => {
+  const w = world()
+  const sent = []
+  w.win.webContents = { send: (channel, payload) => sent.push({ channel, payload }) }
+  let clickCb = null
+  const Factory = class {
+    constructor(opts) { this.opts = opts; w.sink.created.push(opts) }
+    show() { w.sink.shown.push(this.opts) }
+    on(evt, cb) { if (evt === 'click') clickCb = cb }
+  }
+  const n = new Notifier({
+    getWindow: () => w.win,
+    getSettings: () => w.settings,
+    getOpenSessionId: () => w.openId,
+    NotificationImpl: Factory,
+    beep: () => {},
+    now: () => w.now
+  })
+  n.deliver({ sessionId: 's1', title: 'x', event: { type: 'turn:error' } })
+  assert.ok(clickCb, 'click handler should be registered')
+  clickCb()
+  assert.strictEqual(w.win.focused, true)
+  assert.strictEqual(sent.length, 1)
+  assert.strictEqual(sent[0].channel, 'notify:open-session')
+  assert.strictEqual(sent[0].payload.sessionId, 's1')
+})
