@@ -8,6 +8,11 @@ const path = require('path')
 const MODES = ['toast', 'badge', 'off']
 const EVENT_KEYS = ['turnFinished', 'turnError', 'blocked', 'usageThreshold']
 
+const DEFAULT_PROFILES = [
+  { id: 'powershell', name: 'PowerShell (here)', shell: null, args: [], cwd: null },
+  { id: 'claude', name: 'claude (tracked)', shell: null, args: [], cwd: null, tracked: true }
+]
+
 const DEFAULTS = {
   version: 1,
   notify: {
@@ -16,7 +21,9 @@ const DEFAULTS = {
     blocked: 'toast',
     usageThreshold: 'toast',
     sound: false
-  }
+  },
+  profiles: DEFAULT_PROFILES,
+  workspace: null
 }
 
 function clone(o) {
@@ -47,6 +54,8 @@ class SettingsStore {
         }
         if (typeof parsed.notify.sound === 'boolean') this.data.notify.sound = parsed.notify.sound
       }
+      if (Array.isArray(parsed.profiles)) this.data.profiles = parsed.profiles
+      if (parsed.workspace && typeof parsed.workspace === 'object') this.data.workspace = parsed.workspace
     } catch {
       this.data = clone(DEFAULTS) // corrupt → defaults
     }
@@ -79,6 +88,35 @@ class SettingsStore {
     this._save()
     return this.get()
   }
+
+  getProfiles() {
+    return clone(this.data.profiles)
+  }
+
+  saveProfile(profile) {
+    const list = this.data.profiles
+    const id = profile.id || 'pf-' + Math.random().toString(36).slice(2, 9)
+    const next = { ...profile, id }
+    const idx = list.findIndex((p) => p.id === id)
+    if (idx === -1) list.push(next)
+    else list[idx] = next
+    this._save()
+    return clone(next)
+  }
+
+  deleteProfile(id) {
+    this.data.profiles = this.data.profiles.filter((p) => p.id !== id)
+    this._save()
+  }
+
+  getWorkspace() {
+    return this.data.workspace ? clone(this.data.workspace) : null
+  }
+
+  setWorkspace(layout) {
+    this.data.workspace = layout
+    this._save()
+  }
 }
 
-module.exports = { SettingsStore, DEFAULTS, MODES, EVENT_KEYS }
+module.exports = { SettingsStore, DEFAULTS, MODES, EVENT_KEYS, DEFAULT_PROFILES }
