@@ -1,6 +1,7 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
+import { SearchAddon } from '@xterm/addon-search'
 import '@xterm/xterm/css/xterm.css'
 import { themeColors } from '../lib/themes'
 
@@ -8,6 +9,9 @@ import { themeColors } from '../lib/themes'
 // unmount. Data/exit events are filtered to this pane's id.
 export default function TerminalPane({ ptyId, theme, cwd, shell, initialInput, onFocus }) {
   const hostRef = useRef(null)
+  const termRef = useRef(null)
+  const searchRef = useRef(null)
+  const [search, setSearch] = useState(null) // null = closed; string = open with query
 
   useEffect(() => {
     const c = themeColors(theme)
@@ -25,6 +29,10 @@ export default function TerminalPane({ ptyId, theme, cwd, shell, initialInput, o
     })
     const fit = new FitAddon()
     term.loadAddon(fit)
+    const searchAddon = new SearchAddon()
+    term.loadAddon(searchAddon)
+    termRef.current = term
+    searchRef.current = searchAddon
     term.open(hostRef.current)
     fit.fit()
 
@@ -58,10 +66,48 @@ export default function TerminalPane({ ptyId, theme, cwd, shell, initialInput, o
       offData()
       offExit()
       onInput.dispose()
+      termRef.current = null
+      searchRef.current = null
       term.dispose()
       window.flux.pty.kill(ptyId)
     }
   }, [ptyId])
 
-  return <div className="terminal-host" ref={hostRef} onMouseDown={onFocus} />
+  useEffect(() => {
+    const host = hostRef.current
+    if (!host) return
+    const onKey = (e) => {
+      if (e.ctrlKey && !e.shiftKey && (e.key === 'f' || e.key === 'F')) {
+        e.preventDefault()
+        e.stopPropagation()
+        setSearch((s) => (s === null ? '' : null))
+      }
+    }
+    host.addEventListener('keydown', onKey)
+    return () => host.removeEventListener('keydown', onKey)
+  }, [])
+
+  return (
+    <div className="terminal-host-wrap">
+      {search !== null && (
+        <div className="pane-search">
+          <input
+            autoFocus
+            className="pane-search-input"
+            placeholder="search scrollback…"
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); searchRef.current && searchRef.current.findNext(e.target.value, { incremental: true }) }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') searchRef.current && (e.shiftKey ? searchRef.current.findPrevious(search) : searchRef.current.findNext(search))
+              if (e.key === 'Escape') { setSearch(null); termRef.current && termRef.current.focus() }
+            }}
+          />
+          <button className="pane-search-btn" onClick={() => searchRef.current && searchRef.current.findPrevious(search)} title="Previous (Shift+Enter)">↑</button>
+          <button className="pane-search-btn" onClick={() => searchRef.current && searchRef.current.findNext(search)} title="Next (Enter)">↓</button>
+          <button className="pane-search-btn" onClick={() => { setSearch(null); termRef.current && termRef.current.focus() }} title="Close (Esc)">×</button>
+        </div>
+      )}
+      <div className="terminal-host" ref={hostRef} onMouseDown={onFocus} />
+    </div>
+  )
 }

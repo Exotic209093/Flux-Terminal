@@ -1801,3 +1801,11 @@ body,
 .tab-new-wrap { display: inline-flex; align-items: center; gap: 2px; align-self: center; }
 .tab-profile-select { background: var(--bg-elev); color: var(--text-dim); border: 1px solid var(--border);
   border-radius: 6px; font-size: 11px; padding: 1px 2px; cursor: pointer; }
+.terminal-host-wrap { position: relative; flex: 1; min-width: 0; min-height: 0; display: flex; }
+.pane-search { position: absolute; top: 6px; right: 6px; z-index: 8; display: flex; gap: 4px;
+  background: var(--bg-elev); border: 1px solid var(--border); border-radius: 8px; padding: 4px 6px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.4); }
+.pane-search-input { background: var(--bg); color: var(--text); border: 1px solid var(--border);
+  border-radius: 5px; font-size: 12px; padding: 2px 6px; width: 180px; }
+.pane-search-btn { background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 13px; padding: 0 4px; }
+.pane-search-btn:hover { color: var(--text); }
