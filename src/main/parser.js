@@ -75,13 +75,28 @@ function freshModel(file) {
     lastContextTokens: 0, // prompt size of the most recent assistant turn (= current context fill)
     lastUserPrompt: null,
     parseErrors: 0,
+    errorCount: 0, // best-effort count of error/failure records (attention.js consumes deltas)
     lineCount: 0
   }
+}
+
+/**
+ * Best-effort: does this record look like a turn/API error/failure?
+ * The Claude Code JSONL schema drifts, so this is a tunable marker set, not a
+ * contract — verify against a real errored transcript later.
+ */
+function isErrorRecord(o) {
+  if (!o || typeof o !== 'object') return false
+  if (o.isApiErrorMessage === true) return true
+  if (o.type === 'result' && o.is_error === true) return true
+  if (o.type === 'system' && o.subtype === 'error') return true
+  return false
 }
 
 /** Apply one parsed event object to the accumulator (and optional timeline). */
 function applyEvent(o, model, timeline) {
   model.lineCount++
+  if (isErrorRecord(o)) model.errorCount++
   if (o.sessionId && !model.sessionId) model.sessionId = o.sessionId
   if (o.cwd) {
     model.cwd = o.cwd
@@ -245,4 +260,4 @@ function parseSessionFile(filePath, opts = {}) {
   return finalize(model)
 }
 
-module.exports = { parseSessionFile, parseLine, freshModel, applyEvent, finalize }
+module.exports = { parseSessionFile, parseLine, freshModel, applyEvent, finalize, isErrorRecord }
