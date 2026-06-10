@@ -217,6 +217,21 @@ export default function App() {
     [selected, detail, sendState, model]
   )
 
+  // Tell main which session is open (+ null when not in a session view) so it can
+  // suppress notifications for the session you're actively looking at.
+  useEffect(() => {
+    const id = view === 'session' ? (detail?.sessionId || selected?.sessionId || null) : null
+    window.flux.notify.setOpenSession(id)
+  }, [view, detail, selected])
+
+  // A clicked notification asks us to open that session.
+  useEffect(() => {
+    return window.flux.notify.onOpenSession(({ sessionId }) => {
+      const sess = sessions.find((s) => s.sessionId === sessionId)
+      if (sess) openSession(sess)
+    })
+  }, [sessions, openSession])
+
   return (
     <div className="app-shell">
       <Sidebar
