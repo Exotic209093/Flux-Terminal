@@ -1809,3 +1809,8 @@ body,
   border-radius: 5px; font-size: 12px; padding: 2px 6px; width: 180px; }
 .pane-search-btn { background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 13px; padding: 0 4px; }
 .pane-search-btn:hover { color: var(--text); }
+
+.settings-mute { display: flex; align-items: center; gap: 6px; margin: 4px 0 10px; color: var(--text); font-size: 12px; }
+.settings-test { margin-top: 10px; width: 100%; background: var(--accent); color: var(--bg); border: none;
+  border-radius: 6px; padding: 6px; cursor: pointer; font-size: 12px; }
+.settings-test:hover { filter: brightness(1.08); }

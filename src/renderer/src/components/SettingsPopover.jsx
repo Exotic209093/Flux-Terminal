@@ -26,6 +26,10 @@ export default function SettingsPopover({ onClose }) {
   return (
     <div className="settings-pop" onMouseLeave={onClose}>
       <div className="settings-pop-title">Notifications</div>
+      <label className="settings-mute">
+        <input type="checkbox" checked={!!notify.muted} onChange={(e) => setMode('muted', e.target.checked)} />
+        Mute all (do not disturb)
+      </label>
       {ROWS.map((r) => (
         <div className="settings-row" key={r.key}>
           <span className="settings-row-label">{r.label}</span>
@@ -50,6 +54,9 @@ export default function SettingsPopover({ onClose }) {
         />
         Play a sound
       </label>
+      <button className="settings-test" onClick={() => window.flux.notify.test()}>
+        Send test notification
+      </button>
     </div>
   )
 }
