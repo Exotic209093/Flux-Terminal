@@ -1,7 +1,7 @@
 # Packaging — design (Windows NSIS installer, unsigned)
 
 **Date:** 2026-06-10
-**Status:** approved (James) — ready to plan.
+**Status:** implemented 2026-06-10 (see `docs/superpowers/plans/2026-06-10-packaging.md`). app:// protocol fix renders the production build; `npm run dist` builds an unsigned NSIS installer (node-pty asar-unpacked, npmRebuild:false because the prebuilt binaries are used). Code signing remains a documented future step.
 
 ## Goal
 

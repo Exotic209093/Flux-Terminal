@@ -46,6 +46,8 @@ Other scripts:
 | `npm run smoke` | verify `node-pty` works under plain Node |
 | `npm run smoke:electron` | verify `node-pty` works under Electron's ABI |
 | `npm run fix-electron` | re-extract Electron's binary if it goes missing |
+| `npm run dist` | build an unsigned Windows NSIS installer into `dist/` |
+| `npm run dist:dir` | build an unpacked app in `dist/win-unpacked/` for testing |
 
 ### Known environment quirk: Electron's `extract-zip`
 
@@ -139,7 +141,10 @@ scripts/
       in-memory notification history with a topbar 🔔 bell, and Mission Control cards with
       exact cost + All/Needs-you/Running filter + manual refresh.
 
+- [x] **Packaging:** the production build renders (served over a custom `app://` scheme,
+      fixing the `file://` blank-window bug) and `npm run dist` produces an unsigned Windows
+      NSIS installer (node-pty asar-unpacked). Code signing is a documented future step.
+
 ### Possible next steps
 - Timeline scrubber / playback controls; collapse long thinking blocks
 - Syntax-highlight code in the replay
-- Package installers (`electron-builder`) for a double-click app
