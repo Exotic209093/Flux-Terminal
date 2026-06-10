@@ -1,5 +1,5 @@
 // src/renderer/src/components/TerminalWorkspace.jsx
-import { useReducer, useEffect, useCallback, useRef, Fragment } from 'react'
+import { useReducer, useEffect, useState, useCallback, useRef, Fragment } from 'react'
 import TerminalPane from './TerminalPane'
 import TabBar from './TabBar'
 import LivePanel from './LivePanel'
@@ -16,6 +16,14 @@ function freshSeed() {
 export default function TerminalWorkspace({ theme, onActivePty }) {
   const [state, dispatch] = useReducer(reducer, undefined, () => initialState(freshSeed()))
   const pendingInput = useRef({})
+  const pendingSpawn = useRef({}) // ptyId -> { cwd, shell }
+  const stateRef = useRef(state)
+  useEffect(() => { stateRef.current = state }, [state])
+
+  const [profiles, setProfiles] = useState([])
+  useEffect(() => { window.flux.settings.profiles().then((list) => setProfiles(list || [])) }, [])
+  const profilesRef = useRef(profiles)
+  useEffect(() => { profilesRef.current = profiles }, [profiles])
 
   const activeTab = state.tabs.find((t) => t.id === state.activeTabId) || state.tabs[0]
   const activePane = activeTab && activeTab.panes.find((p) => p.id === activeTab.activePaneId)
@@ -28,7 +36,6 @@ export default function TerminalWorkspace({ theme, onActivePty }) {
     if (state.tabs.length === 0) dispatch({ type: 'NEW_TAB', ...freshSeed() })
   }, [state.tabs.length])
 
-  const newTab = useCallback(() => dispatch({ type: 'NEW_TAB', ...freshSeed() }), [])
   const closeTab = useCallback((tabId) => dispatch({ type: 'CLOSE_TAB', tabId }), [])
   const selectTab = useCallback((tabId) => dispatch({ type: 'FOCUS_TAB', tabId }), [])
   const renameTab = useCallback((tabId, title) => dispatch({ type: 'RENAME_TAB', tabId, title }), [])
@@ -40,6 +47,19 @@ export default function TerminalWorkspace({ theme, onActivePty }) {
     dispatch({ type: 'NEW_TAB', ...seed })
     window.flux.live.track(uuid)
   }, [])
+
+  const profileById = useCallback(
+    (id) => profiles.find((p) => p.id === id) || profiles[0] || { id: 'powershell', name: 'PowerShell' },
+    [profiles]
+  )
+  const openProfile = useCallback((profileId) => {
+    const prof = profileById(profileId)
+    if (prof && prof.tracked) { launchTracked(); return }
+    const seed = { tabId: uid('t'), paneId: uid('pane'), ptyId: uid('pty'), profileId: prof.id, title: prof.name }
+    pendingSpawn.current[seed.ptyId] = { cwd: prof.cwd || null, shell: prof.shell || null }
+    dispatch({ type: 'NEW_TAB', ...seed })
+  }, [profileById, launchTracked])
+  const newTab = useCallback(() => openProfile((profiles[0] && profiles[0].id) || 'powershell'), [openProfile, profiles])
 
   const splitActive = useCallback((dir) => {
     if (!activeTab || activeTab.panes.length >= 2) return
@@ -87,6 +107,37 @@ export default function TerminalWorkspace({ theme, onActivePty }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [newTab, closeTab, activeTab, splitActive])
 
+  // Restore the saved tab layout once on mount. Tabs reopen as FRESH shells in
+  // their saved profile's cwd; tracked-claude tabs restore as a plain shell.
+  useEffect(() => {
+    window.flux.settings.getWorkspace().then((saved) => {
+      if (!saved || !Array.isArray(saved.tabs) || saved.tabs.length === 0) return
+      saved.tabs.forEach((t, i) => {
+        const prof = (t.profileId && profilesRef.current.find((p) => p.id === t.profileId)) || null
+        const seed = {
+          tabId: uid('t'),
+          paneId: uid('pane'),
+          ptyId: uid('pty'),
+          profileId: t.profileId || 'powershell',
+          title: t.title || (prof && prof.name) || 'PowerShell'
+        }
+        pendingSpawn.current[seed.ptyId] = { cwd: (prof && prof.cwd) || null, shell: (prof && prof.shell) || null }
+        if (i === 0) dispatch({ type: 'CLOSE_TAB', tabId: stateRef.current.activeTabId })
+        dispatch({ type: 'NEW_TAB', ...seed })
+      })
+    })
+  }, [])
+
+  // Persist the layout (profile + title per tab) shortly after it changes.
+  useEffect(() => {
+    const id = setTimeout(() => {
+      window.flux.settings.setWorkspace({
+        tabs: state.tabs.map((t) => ({ profileId: t.panes[0].profileId, title: t.title }))
+      })
+    }, 400)
+    return () => clearTimeout(id)
+  }, [state.tabs])
+
   return (
     <div className="workspace">
       <LivePanel onLaunch={launchTracked} />
@@ -98,6 +149,8 @@ export default function TerminalWorkspace({ theme, onActivePty }) {
         onRename={renameTab}
         onNew={newTab}
         onSplit={splitActive}
+        profiles={profiles}
+        onNewProfile={openProfile}
       />
       <div className="workspace-body">
         {state.tabs.map((t) => {
@@ -114,6 +167,8 @@ export default function TerminalWorkspace({ theme, onActivePty }) {
                     <TerminalPane
                       ptyId={p.ptyId}
                       theme={theme}
+                      cwd={(pendingSpawn.current[p.ptyId] || {}).cwd}
+                      shell={(pendingSpawn.current[p.ptyId] || {}).shell}
                       initialInput={pendingInput.current[p.ptyId]}
                       onFocus={() => dispatch({ type: 'FOCUS_PANE', paneId: p.id })}
                     />

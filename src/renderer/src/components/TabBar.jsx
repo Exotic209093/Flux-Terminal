@@ -1,7 +1,7 @@
 // src/renderer/src/components/TabBar.jsx
 import { useState } from 'react'
 
-export default function TabBar({ tabs, activeTabId, onSelect, onClose, onRename, onNew, onSplit }) {
+export default function TabBar({ tabs, activeTabId, onSelect, onClose, onRename, onNew, onSplit, profiles, onNewProfile }) {
   const [editing, setEditing] = useState(null) // tabId being renamed
 
   return (
@@ -38,9 +38,22 @@ export default function TabBar({ tabs, activeTabId, onSelect, onClose, onRename,
           </button>
         </div>
       ))}
-      <button className="tab-new" title="New tab (Ctrl+T)" onClick={onNew}>
-        +
-      </button>
+      <div className="tab-new-wrap">
+        <button className="tab-new" title="New tab (Ctrl+T)" onClick={onNew}>+</button>
+        {profiles && profiles.length > 1 && (
+          <select
+            className="tab-profile-select"
+            value=""
+            onChange={(e) => { if (e.target.value) onNewProfile(e.target.value) }}
+            title="New tab from profile"
+          >
+            <option value="">▾</option>
+            {profiles.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+        )}
+      </div>
       <button className="tab-split" title="Split active tab (Ctrl+Shift+E)" onClick={() => onSplit('v')}>⊟</button>
     </div>
   )

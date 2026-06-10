@@ -206,6 +206,28 @@ ipcMain.handle('settings:setNotify', (_e, { key, value }) => {
   }
 })
 
+// ---- Launch profiles + workspace layout -------------------------------------
+ipcMain.handle('settings:profiles', () => (settingsStore ? settingsStore.getProfiles() : []))
+ipcMain.handle('settings:saveProfile', (_e, p) => {
+  try {
+    return { ok: true, profile: settingsStore.saveProfile(p) }
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+})
+ipcMain.handle('settings:deleteProfile', (_e, id) => {
+  try {
+    settingsStore.deleteProfile(id)
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+})
+ipcMain.handle('settings:getWorkspace', () => (settingsStore ? settingsStore.getWorkspace() : null))
+ipcMain.on('settings:setWorkspace', (_e, layout) => {
+  if (settingsStore) settingsStore.setWorkspace(layout)
+})
+
 // Renderer tells main which session is open so we don't toast about it while it's focused.
 ipcMain.on('notify:setOpenSession', (_e, sessionId) => {
   openSessionId = sessionId || null

@@ -88,7 +88,12 @@ contextBridge.exposeInMainWorld('flux', {
   },
   settings: {
     get: () => ipcRenderer.invoke('settings:get'),
-    setNotify: (key, value) => ipcRenderer.invoke('settings:setNotify', { key, value })
+    setNotify: (key, value) => ipcRenderer.invoke('settings:setNotify', { key, value }),
+    profiles: () => ipcRenderer.invoke('settings:profiles'),
+    saveProfile: (p) => ipcRenderer.invoke('settings:saveProfile', p),
+    deleteProfile: (id) => ipcRenderer.invoke('settings:deleteProfile', id),
+    getWorkspace: () => ipcRenderer.invoke('settings:getWorkspace'),
+    setWorkspace: (layout) => ipcRenderer.send('settings:setWorkspace', layout)
   },
   notify: {
     setOpenSession: (sessionId) => ipcRenderer.send('notify:setOpenSession', sessionId),
