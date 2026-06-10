@@ -72,7 +72,7 @@ class SessionMonitor {
         cwd: meta.projectApprox,
         title: meta.sessionId.slice(0, 8),
         model: null,
-        costUsd: 0,
+        usage: { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 },
         subagents: { running: 0, total: 0 },
         lastSnippet: '',
         lastActivityMs: meta.mtimeMs,
@@ -107,7 +107,7 @@ class SessionMonitor {
           rec.title = parsed.title || rec.title
           rec.cwd = parsed.cwd || rec.cwd
           rec.model = (parsed.models && parsed.models[0]) || rec.model
-          rec.costUsd = estimateCostUsd(parsed.usage, rec.model)
+          rec.usage = parsed.usage || rec.usage
           rec.lastSnippet = snippetOf(parsed)
           rec.lastRole = lastRoleOf(parsed)
           rec.lastActivityMs = meta.mtimeMs
@@ -164,20 +164,4 @@ function safe(fn, fallback) {
   }
 }
 
-// Cost from usage. Keep a tiny self-contained estimate here so the monitor stays
-// main-only and testable. Coarse — the card shows "~$x"; exact cost lives in the
-// live panel.
-const APPROX_PER_MTOK = { input: 3, output: 15, cacheRead: 0.3, cacheCreation: 3.75 }
-function estimateCostUsd(usage, _model) {
-  if (!usage) return 0
-  const u = usage
-  const c =
-    ((u.input || 0) * APPROX_PER_MTOK.input +
-      (u.output || 0) * APPROX_PER_MTOK.output +
-      (u.cacheRead || 0) * APPROX_PER_MTOK.cacheRead +
-      (u.cacheCreation || 0) * APPROX_PER_MTOK.cacheCreation) /
-    1_000_000
-  return Math.round(c * 100) / 100
-}
-
-module.exports = { SessionMonitor, isRecentlyActive, snippetOf, lastRoleOf, estimateCostUsd }
+module.exports = { SessionMonitor, isRecentlyActive, snippetOf, lastRoleOf }

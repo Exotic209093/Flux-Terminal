@@ -6,7 +6,8 @@ const { composeCards, cardsChanged, statusFor } = require('../src/main/missionco
 function rec(over) {
   return Object.assign({
     sessionId: 's', file: 'f', project: 'p', cwd: 'c', title: 't', model: 'm',
-    costUsd: 1, subagents: { running: 0, total: 0 }, lastSnippet: '', lastActivityMs: 1000,
+    usage: { input: 100, output: 50, cacheRead: 0, cacheCreation: 0 },
+    subagents: { running: 0, total: 0 }, lastSnippet: '', lastActivityMs: 1000,
     lastRole: 'assistant', hasError: false, blocked: false, turnOpen: false, origin: 'auto'
   }, over)
 }
@@ -33,11 +34,17 @@ test('composeCards groups + sorts needs-you first, then by recency', () => {
   assert.strictEqual(cards[2].group, 'idle')
 })
 
-test('cardsChanged detects status/cost/snippet/subagent/count changes', () => {
-  const a = composeCards([rec({ sessionId: 'x', costUsd: 1 })], 1000)
-  const b = composeCards([rec({ sessionId: 'x', costUsd: 1 })], 1000)
+test('cardsChanged detects status/usage/snippet/subagent/count changes', () => {
+  const a = composeCards([rec({ sessionId: 'x' })], 1000)
+  const b = composeCards([rec({ sessionId: 'x' })], 1000)
   assert.strictEqual(cardsChanged(a, b), false)
   assert.strictEqual(cardsChanged(null, b), true)
-  assert.strictEqual(cardsChanged(a, composeCards([rec({ sessionId: 'x', costUsd: 2 })], 1000)), true)
+  assert.strictEqual(cardsChanged(a, composeCards([rec({ sessionId: 'x', usage: { input: 999, output: 50, cacheRead: 0, cacheCreation: 0 } })], 1000)), true)
   assert.strictEqual(cardsChanged(a, composeCards([rec({ sessionId: 'x', turnOpen: true })], 1000)), true)
+})
+
+test('composeCards passes usage + model through for renderer-side cost', () => {
+  const cards = composeCards([rec({ sessionId: 'x', model: 'claude-opus-4-8', usage: { input: 1, output: 2, cacheRead: 3, cacheCreation: 4 } })], 1000)
+  assert.deepStrictEqual(cards[0].usage, { input: 1, output: 2, cacheRead: 3, cacheCreation: 4 })
+  assert.strictEqual(cards[0].model, 'claude-opus-4-8')
 })
