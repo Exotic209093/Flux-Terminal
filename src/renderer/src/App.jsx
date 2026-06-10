@@ -1,11 +1,10 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import Sidebar from './components/Sidebar'
-import TerminalPane from './components/TerminalPane'
+import TerminalWorkspace from './components/TerminalWorkspace'
 import SessionView from './components/SessionView'
 import StatsView from './components/StatsView'
 import SkillsView from './components/SkillsView'
 import MissionControl from './components/MissionControl'
-import LivePanel from './components/LivePanel'
 import SearchOverlay from './components/SearchOverlay'
 import { applyTheme, loadTheme, saveTheme } from './lib/themes'
 import UsageBar from './components/UsageBar'
@@ -27,7 +26,7 @@ export default function App() {
   const [sendError, setSendError] = useState(null)
   const [view, setView] = useState('terminal') // 'terminal' | 'session' | 'stats'
   const [newChat, setNewChat] = useState(null) // { cwd } when composing a new chat
-  const termPtyId = 'main-terminal' // Phase 1: one terminal; Task 4 replaces this with TerminalWorkspace
+  const [activePtyId, setActivePtyId] = useState(null)
 
   const [theme, setThemeState] = useState(loadTheme())
 
@@ -305,15 +304,14 @@ export default function App() {
             agents={live && live.tracking ? live.subagents : null}
             liveActive={!!(live && live.tracking && live.state === 'live')}
             onAgentsClick={() => setView('terminal')}
-            ptyId={termPtyId}
+            ptyId={activePtyId}
           />
           <UsageBar />
         </div>
 
         {/* Terminal stays mounted; just hidden when not active. */}
         <div className="pane-slot" style={{ display: view === 'terminal' ? 'flex' : 'none' }}>
-          <LivePanel ptyId={termPtyId} />
-          <TerminalPane ptyId={termPtyId} theme={theme} />
+          <TerminalWorkspace theme={theme} onActivePty={setActivePtyId} />
         </div>
         {view === 'session' && (
           <div className="pane-slot">

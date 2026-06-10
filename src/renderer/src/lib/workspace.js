@@ -114,4 +114,4 @@ function deriveTitle({ title, profileName, cwd } = {}) {
   return 'shell'
 }
 
-module.exports = { reducer, initialState, allPtyIds, deriveTitle }
+export { reducer, initialState, allPtyIds, deriveTitle }

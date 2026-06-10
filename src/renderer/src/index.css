@@ -1761,3 +1761,24 @@ body,
   overflow: hidden; }
 .mcard-meta { display: flex; gap: 10px; margin-top: 8px; color: var(--text-faint); font-size: 11px; }
 .mission-empty { color: var(--text-faint); padding: 40px 4px; text-align: center; }
+
+/* Terminal workspace: tabs */
+.workspace { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.workspace-body { flex: 1; min-height: 0; position: relative; }
+.tab-surface { position: absolute; inset: 0; display: flex; }
+.pane-wrap { flex: 1; min-width: 0; min-height: 0; display: flex; }
+.tabbar { display: flex; align-items: stretch; gap: 4px; padding: 4px 6px 0;
+  background: var(--bg-panel); border-bottom: 1px solid var(--border); overflow-x: auto; }
+.tab-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px;
+  background: var(--bg-elev); border: 1px solid var(--border); border-bottom: none;
+  border-radius: 7px 7px 0 0; color: var(--text-dim); font-size: 12px; cursor: pointer; max-width: 200px; }
+.tab-chip.active { background: var(--bg); color: var(--text); }
+.tab-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tab-rename { background: var(--bg); color: var(--text); border: 1px solid var(--accent);
+  border-radius: 4px; font-size: 12px; width: 110px; }
+.tab-close { background: none; border: none; color: var(--text-faint); cursor: pointer;
+  font-size: 14px; line-height: 1; padding: 0 2px; }
+.tab-close:hover { color: var(--alert); }
+.tab-new { background: none; border: 1px solid var(--border); color: var(--text-dim);
+  border-radius: 6px; padding: 0 9px; cursor: pointer; align-self: center; }
+.tab-new:hover { color: var(--text); border-color: var(--accent); }
