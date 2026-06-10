@@ -51,7 +51,10 @@ function useMatrixRain(canvasRef, enabled) {
 
     const onVisibility = () => {
       running = !document.hidden
-      if (running) raf = requestAnimationFrame(frame)
+      if (running) {
+        cancelAnimationFrame(raf)
+        raf = requestAnimationFrame(frame)
+      }
     }
 
     resize()
