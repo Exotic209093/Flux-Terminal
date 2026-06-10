@@ -1,4 +1,6 @@
 // src/renderer/src/components/MissionCard.jsx
+import { estimateCost, formatUSD } from '../lib/pricing'
+
 const CHIP_LABEL = { error: 'error', blocked: 'needs you', running: 'running', finished: 'done', idle: 'idle' }
 
 function rel(ms, now) {
@@ -19,7 +21,7 @@ export default function MissionCard({ card, now, onOpen }) {
       <div className="mcard-proj" title={card.cwd}>{card.cwd || card.project}</div>
       <div className="mcard-snippet">{card.lastSnippet || '—'}</div>
       <div className="mcard-meta">
-        <span>${card.costUsd.toFixed(2)}</span>
+        <span>{formatUSD(estimateCost(card.usage, card.model).total)}</span>
         {card.model && <span>{card.model.replace(/^claude-/, '')}</span>}
         {card.subagents.running > 0 && <span>▶ {card.subagents.running}</span>}
         <span style={{ marginLeft: 'auto' }}>{rel(card.lastActivityMs, now)}</span>
