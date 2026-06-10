@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
 import ModelPicker from './ModelPicker'
+import SettingsPopover from './SettingsPopover'
 
 // Topbar control cluster: model picker, running-subagent badge, remote-control
 // toggle. `agents` is the live summary { running, total } or null. `liveActive`
 // is true when a tracked claude is running in the terminal.
 export default function ControlBar({ model, onModel, agents, liveActive, onAgentsClick }) {
   const [remoteOn, setRemoteOn] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   // When the live session ends, the toggle can no longer reflect remote state.
   useEffect(() => {
     if (!liveActive) setRemoteOn(false)
@@ -36,6 +38,16 @@ export default function ControlBar({ model, onModel, agents, liveActive, onAgent
       >
         ⊙ Remote{remoteOn ? ' on' : ''}
       </button>
+      <div className="settings-anchor">
+        <button
+          className={'settings-gear' + (settingsOpen ? ' on' : '')}
+          onClick={() => setSettingsOpen((o) => !o)}
+          title="Notification settings"
+        >
+          ⚙
+        </button>
+        {settingsOpen && <SettingsPopover onClose={() => setSettingsOpen(false)} />}
+      </div>
     </div>
   )
 }
