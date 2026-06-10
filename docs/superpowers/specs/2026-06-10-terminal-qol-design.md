@@ -1,10 +1,7 @@
 # Milestone E — Terminal quality-of-life: tabs, split, profiles, scrollback search
 
 **Date:** 2026-06-10
-**Status:** design approved 2026-06-10 (James), ready to plan. Milestone B is merged.
-See "Implementation decisions (as-landed)" at the bottom — the spec's assumption that
-`pty:spawn` already keys streams by id is WRONG; the PTY bridge is single-PTY and must
-be reworked. Build order + adapted decisions are recorded there.
+**Status:** implemented 2026-06-10 (see `docs/superpowers/plans/2026-06-10-terminal-qol.md`). Tabs, two-pane split, profiles + restore, and per-pane scrollback search shipped; PTY bridge reworked to an id-keyed PtyManager.
 
 ## Goal
 

@@ -131,6 +131,10 @@ scripts/
       grouping every recent session into **Needs you** / **Running** / **Idle** with live
       cost, model, subagent count, and last-reply snippet; click a card to open it.
 
+- [x] **Terminal QoL (Milestone E):** tabbed terminal with a two-pane split, saved launch
+      profiles (restored as fresh shells on relaunch), and per-pane scrollback search
+      (Ctrl+F); the tracked-`claude` live bar stays docked above the tabs.
+
 ### Possible next steps
 - Timeline scrubber / playback controls; collapse long thinking blocks
 - Syntax-highlight code in the replay
