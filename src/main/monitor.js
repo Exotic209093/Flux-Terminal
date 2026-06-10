@@ -117,8 +117,10 @@ class SessionMonitor {
         rec.subagents = safe(() => this.countSub(meta.file), { running: 0, total: 0 })
       }
 
-      // Drive attention only for active sessions (cheap: counts already parsed).
-      if (active && rec._parsedCounts) {
+      // Drive attention for active sessions, AND for any session with an open turn
+      // even after it goes quiet — otherwise a stall longer than activeWindowMs
+      // would drop out of the active set before BLOCKED_MS and never fire 'blocked'.
+      if ((active || rec._attn.turnOpen) && rec._parsedCounts) {
         const events = observe(rec._attn, {
           ts: now,
           mtimeMs: meta.mtimeMs,

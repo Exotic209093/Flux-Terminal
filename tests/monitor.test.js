@@ -63,6 +63,37 @@ test('a long turn across ticks produces a turn:finished attention event', () => 
   assert.ok(cards.length >= 1) // cards pushed when state changed
 })
 
+test('a stalled open turn fires a blocked attention event past the active window', () => {
+  const world = makeWorld()
+  const attn = []
+  const mon = monitorFor(world, { onAttention: (e) => attn.push(e), onCards: () => {} })
+
+  const file = '/p/s2.jsonl'
+  const base = { sessionId: 's2', file, projectDir: 'p', projectApprox: 'C:\\p' }
+  const parsed = { ok: true, sessionId: 's2', cwd: 'C:\\p', title: 't', models: ['claude-x'],
+    counts: { user: 0, assistant: 0 }, usage: { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 },
+    errorCount: 0, timeline: [], lastTimestamp: null }
+
+  world.files = [{ ...base, mtimeMs: 0 }]
+  world.parsed[file] = parsed
+  mon._tick() // baseline
+
+  world.now = 1000
+  world.files = [{ ...base, mtimeMs: 1000 }]
+  world.parsed[file] = { ...parsed, counts: { user: 1, assistant: 0 } } // turn opens, last write @1000
+  mon._tick()
+
+  // 91s later, NO further writes (mtime still 1000) → session is past activeWindowMs(60s)
+  // but the turn is still open, so observe must still run and fire 'blocked' (BLOCKED_MS=90s).
+  world.now = 1000 + 91000
+  world.files = [{ ...base, mtimeMs: 1000 }]
+  mon._tick()
+
+  const blocked = attn.filter((e) => e.event.type === 'blocked')
+  assert.strictEqual(blocked.length, 1)
+  assert.strictEqual(blocked[0].sessionId, 's2')
+})
+
 test('idle (beyond recent window) sessions are pruned from cards', () => {
   const world = makeWorld()
   const cards = []
