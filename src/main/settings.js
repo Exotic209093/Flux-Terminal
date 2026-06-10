@@ -20,7 +20,8 @@ const DEFAULTS = {
     turnError: 'toast',
     blocked: 'toast',
     usageThreshold: 'toast',
-    sound: false
+    sound: false,
+    muted: false
   },
   profiles: DEFAULT_PROFILES,
   workspace: null
@@ -53,6 +54,7 @@ class SettingsStore {
           if (MODES.includes(parsed.notify[k])) this.data.notify[k] = parsed.notify[k]
         }
         if (typeof parsed.notify.sound === 'boolean') this.data.notify.sound = parsed.notify.sound
+        if (typeof parsed.notify.muted === 'boolean') this.data.notify.muted = parsed.notify.muted
       }
       if (Array.isArray(parsed.profiles)) this.data.profiles = parsed.profiles
       if (parsed.workspace && typeof parsed.workspace === 'object') this.data.workspace = parsed.workspace
@@ -76,9 +78,9 @@ class SettingsStore {
   }
 
   setNotify(key, value) {
-    if (key === 'sound') {
-      if (typeof value !== 'boolean') throw new Error('sound must be boolean')
-      this.data.notify.sound = value
+    if (key === 'sound' || key === 'muted') {
+      if (typeof value !== 'boolean') throw new Error(key + ' must be boolean')
+      this.data.notify[key] = value
     } else if (EVENT_KEYS.includes(key)) {
       if (!MODES.includes(value)) throw new Error('invalid mode: ' + value)
       this.data.notify[key] = value

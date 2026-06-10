@@ -50,3 +50,13 @@ test('unknown future keys in file are merged under known defaults', () => {
   assert.strictEqual(s.get().notify.turnError, 'badge') // honored
   assert.strictEqual(s.get().notify.blocked, 'toast') // default filled in
 })
+
+test('muted is a boolean notify key, defaults false, round-trips', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'flux-mute-'))
+  const file = path.join(dir, 's.json')
+  const s = new SettingsStore(file)
+  assert.strictEqual(s.get().notify.muted, false)
+  s.setNotify('muted', true)
+  assert.strictEqual(new SettingsStore(file).get().notify.muted, true)
+  assert.throws(() => s.setNotify('muted', 'yes')) // must be boolean
+})
