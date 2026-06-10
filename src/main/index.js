@@ -36,12 +36,19 @@ let openSessionId = null // which session the renderer currently has open (for n
 registerAppScheme(protocol)
 
 function createWindow() {
+  // Window/taskbar icon. In dev this resolves to the repo's build/icon.ico; in the
+  // packaged app build/ isn't bundled (it's buildResources), so this is undefined and
+  // Windows falls back to the exe's embedded icon (also built from build/icon.ico).
+  const iconPath = path.join(__dirname, '../../build/icon.ico')
+  const windowIcon = fs.existsSync(iconPath) ? iconPath : undefined
+
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 820,
     backgroundColor: '#0b0e14',
     autoHideMenuBar: true,
     title: 'Flux Terminal',
+    ...(windowIcon ? { icon: windowIcon } : {}),
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
       sandbox: false,

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { formatTokens, totalTokens, relativeTime, projectName, modelLabel } from '../lib/format'
 import { THEMES } from '../lib/themes'
+import fluxIcon from '../assets/flux-icon.png'
 
 export default function Sidebar({
   sessions,
@@ -32,7 +33,7 @@ export default function Sidebar({
       <header className="sidebar-head">
         <div className="brand-row">
           <div className="brand">
-            <span className="brand-bolt">⚡</span> Flux Terminal
+            <img className="brand-bolt" src={fluxIcon} alt="" /> Flux Terminal
           </div>
           <select
             className="theme-select"

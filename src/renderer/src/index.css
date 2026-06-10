@@ -239,6 +239,9 @@ body,
   font-size: 15px;
   font-weight: 700;
   letter-spacing: 0.2px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
 }
 .theme-select {
   font: inherit;
@@ -275,8 +278,11 @@ body,
   box-shadow: 0 0 0 1px var(--accent-glow);
 }
 .brand-bolt {
-  color: var(--accent);
-  text-shadow: 0 0 10px var(--accent-glow);
+  width: 20px;
+  height: 20px;
+  display: block;
+  flex: none;
+  filter: drop-shadow(0 0 5px var(--accent-glow));
 }
 .brand-sub {
   margin-top: 2px;
