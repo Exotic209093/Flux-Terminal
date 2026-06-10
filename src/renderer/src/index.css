@@ -1782,3 +1782,19 @@ body,
 .tab-new { background: none; border: 1px solid var(--border); color: var(--text-dim);
   border-radius: 6px; padding: 0 9px; cursor: pointer; align-self: center; }
 .tab-new:hover { color: var(--text); border-color: var(--accent); }
+
+/* Split panes */
+.tab-surface.split-v { flex-direction: row; }
+.tab-surface.split-h { flex-direction: column; }
+.pane-wrap { position: relative; }
+.pane-wrap.focused { outline: 1px solid var(--accent); outline-offset: -1px; }
+.pane-divider { flex: 0 0 6px; background: var(--border); cursor: col-resize; }
+.tab-surface.split-h .pane-divider { cursor: row-resize; }
+.pane-divider:hover { background: var(--accent); }
+.pane-close { position: absolute; top: 4px; right: 6px; z-index: 5; background: var(--bg-elev);
+  border: 1px solid var(--border); color: var(--text-faint); border-radius: 4px; cursor: pointer;
+  font-size: 12px; line-height: 1; padding: 1px 5px; opacity: 0; transition: opacity .12s; }
+.pane-wrap:hover .pane-close { opacity: 1; }
+.tab-split { background: none; border: 1px solid var(--border); color: var(--text-dim);
+  border-radius: 6px; padding: 0 8px; cursor: pointer; align-self: center; }
+.tab-split:hover { color: var(--text); border-color: var(--accent); }

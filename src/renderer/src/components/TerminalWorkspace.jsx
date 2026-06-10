@@ -1,5 +1,5 @@
 // src/renderer/src/components/TerminalWorkspace.jsx
-import { useReducer, useEffect, useCallback, useRef } from 'react'
+import { useReducer, useEffect, useCallback, useRef, Fragment } from 'react'
 import TerminalPane from './TerminalPane'
 import TabBar from './TabBar'
 import LivePanel from './LivePanel'
@@ -41,21 +41,51 @@ export default function TerminalWorkspace({ theme, onActivePty }) {
     window.flux.live.track(uuid)
   }, [])
 
+  const splitActive = useCallback((dir) => {
+    if (!activeTab || activeTab.panes.length >= 2) return
+    dispatch({ type: 'SPLIT', tabId: activeTab.id, paneId: uid('pane'), ptyId: uid('pty'), profileId: 'powershell', dir })
+  }, [activeTab])
+
+  const closePane = useCallback((paneId) => dispatch({ type: 'CLOSE_PANE', paneId }), [])
+
+  const onDividerDrag = useCallback((tabId, e) => {
+    const body = e.currentTarget.parentElement
+    const horizontal = body.classList.contains('split-v') // 'v' = side-by-side (vertical divider)
+    const rect = body.getBoundingClientRect()
+    const move = (ev) => {
+      const ratio = horizontal
+        ? (ev.clientX - rect.left) / rect.width
+        : (ev.clientY - rect.top) / rect.height
+      dispatch({ type: 'SET_RATIO', tabId, ratio: Math.min(0.85, Math.max(0.15, ratio)) })
+    }
+    const up = () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up) }
+    window.addEventListener('mousemove', move)
+    window.addEventListener('mouseup', up)
+  }, [])
+
   useEffect(() => {
     const onKey = (e) => {
+      if (e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+        if (activeTab && activeTab.panes.length === 2) {
+          e.preventDefault()
+          const cur = activeTab.panes.findIndex((p) => p.id === activeTab.activePaneId)
+          const other = activeTab.panes[cur === 0 ? 1 : 0]
+          dispatch({ type: 'FOCUS_PANE', paneId: other.id })
+        }
+        return
+      }
       if (!e.ctrlKey) return
-      if (e.key === 't' || e.key === 'T') { e.preventDefault(); newTab() }
+      if (e.shiftKey && (e.key === 'E' || e.key === 'e')) { e.preventDefault(); splitActive('v') }
+      else if (e.shiftKey && (e.key === 'O' || e.key === 'o')) { e.preventDefault(); splitActive('h') }
+      else if (e.key === 't' || e.key === 'T') { e.preventDefault(); newTab() }
       else if (e.key === 'w' || e.key === 'W') {
         e.preventDefault()
-        if (activeTab) {
-          if (!window.confirm('Close this tab? Its shell will be terminated.')) return
-          closeTab(activeTab.id)
-        }
+        if (activeTab) { if (window.confirm('Close this tab? Its shell will be terminated.')) closeTab(activeTab.id) }
       } else if (e.key === 'Tab') { e.preventDefault(); dispatch({ type: 'NEXT_TAB' }) }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [newTab, closeTab, activeTab])
+  }, [newTab, closeTab, activeTab, splitActive])
 
   return (
     <div className="workspace">
@@ -67,26 +97,38 @@ export default function TerminalWorkspace({ theme, onActivePty }) {
         onClose={closeTab}
         onRename={renameTab}
         onNew={newTab}
+        onSplit={splitActive}
       />
       <div className="workspace-body">
-        {state.tabs.map((t) => (
-          <div
-            key={t.id}
-            className="tab-surface"
-            style={{ display: t.id === state.activeTabId ? 'flex' : 'none' }}
-          >
-            {t.panes.map((p) => (
-              <div key={p.id} className="pane-wrap">
-                <TerminalPane
-                  ptyId={p.ptyId}
-                  theme={theme}
-                  initialInput={pendingInput.current[p.ptyId]}
-                  onFocus={() => dispatch({ type: 'FOCUS_PANE', paneId: p.id })}
-                />
-              </div>
-            ))}
-          </div>
-        ))}
+        {state.tabs.map((t) => {
+          const split = t.panes.length === 2
+          const cls = 'tab-surface' + (split ? (t.splitDir === 'v' ? ' split-v' : ' split-h') : '')
+          return (
+            <div key={t.id} className={cls} style={{ display: t.id === state.activeTabId ? 'flex' : 'none' }}>
+              {t.panes.map((p, i) => (
+                <Fragment key={p.id}>
+                  <div
+                    className={'pane-wrap' + (split && p.id === t.activePaneId ? ' focused' : '')}
+                    style={split ? { flex: i === 0 ? t.ratio : 1 - t.ratio } : { flex: 1 }}
+                  >
+                    <TerminalPane
+                      ptyId={p.ptyId}
+                      theme={theme}
+                      initialInput={pendingInput.current[p.ptyId]}
+                      onFocus={() => dispatch({ type: 'FOCUS_PANE', paneId: p.id })}
+                    />
+                    {split && (
+                      <button className="pane-close" title="Close pane" onClick={() => closePane(p.id)}>×</button>
+                    )}
+                  </div>
+                  {split && i === 0 && (
+                    <div className="pane-divider" onMouseDown={(e) => onDividerDrag(t.id, e)} />
+                  )}
+                </Fragment>
+              ))}
+            </div>
+          )
+        })}
       </div>
     </div>
   )

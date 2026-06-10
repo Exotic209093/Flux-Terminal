@@ -1,7 +1,7 @@
 // src/renderer/src/components/TabBar.jsx
 import { useState } from 'react'
 
-export default function TabBar({ tabs, activeTabId, onSelect, onClose, onRename, onNew }) {
+export default function TabBar({ tabs, activeTabId, onSelect, onClose, onRename, onNew, onSplit }) {
   const [editing, setEditing] = useState(null) // tabId being renamed
 
   return (
@@ -41,6 +41,7 @@ export default function TabBar({ tabs, activeTabId, onSelect, onClose, onRename,
       <button className="tab-new" title="New tab (Ctrl+T)" onClick={onNew}>
         +
       </button>
+      <button className="tab-split" title="Split active tab (Ctrl+Shift+E)" onClick={() => onSplit('v')}>⊟</button>
     </div>
   )
 }
