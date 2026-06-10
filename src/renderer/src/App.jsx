@@ -11,6 +11,8 @@ import UsageBar from './components/UsageBar'
 import ControlBar from './components/ControlBar'
 import NotificationBell from './components/NotificationBell'
 import { DEFAULT_MODEL, isKnownModel } from './lib/models'
+import ThemeBackground from './components/ThemeBackground'
+import { loadAnimations, saveAnimations } from './lib/appearance'
 
 // The terminal stays MOUNTED at all times so its PTY (and any running `claude`)
 // survives switching to a session/stats view and back. Opening a session also
@@ -30,6 +32,11 @@ export default function App() {
   const [activePtyId, setActivePtyId] = useState(null)
 
   const [theme, setThemeState] = useState(loadTheme())
+  const [animations, setAnimationsState] = useState(loadAnimations())
+  const setAnimations = useCallback((on) => {
+    saveAnimations(on)
+    setAnimationsState(on)
+  }, [])
 
   const [model, setModelState] = useState(() => {
     const saved = localStorage.getItem('flux.model')
@@ -48,8 +55,8 @@ export default function App() {
   useEffect(() => window.flux.live.onUpdate(setLive), [])
 
   useEffect(() => {
-    applyTheme(theme)
-  }, [theme])
+    applyTheme(theme, { motion: animations })
+  }, [theme, animations])
 
   // Ctrl+Shift+F opens the search overlay from anywhere in the app
   useEffect(() => {
@@ -251,6 +258,7 @@ export default function App() {
 
   return (
     <div className="app-shell">
+      <ThemeBackground theme={theme} animated={animations} />
       <Sidebar
         sessions={sessions}
         loading={sessionsLoading}
@@ -306,6 +314,8 @@ export default function App() {
             liveActive={!!(live && live.tracking && live.state === 'live')}
             onAgentsClick={() => setView('terminal')}
             ptyId={activePtyId}
+            animations={animations}
+            onToggleAnimations={setAnimations}
           />
           <NotificationBell onOpenSession={(id) => {
             const sess = sessions.find((s) => s.sessionId === id)

@@ -9,7 +9,7 @@ const ROWS = [
 ]
 const MODES = ['toast', 'badge', 'off']
 
-export default function SettingsPopover({ onClose }) {
+export default function SettingsPopover({ onClose, animations, onToggleAnimations }) {
   const [notify, setNotify] = useState(null)
 
   useEffect(() => {
@@ -25,6 +25,15 @@ export default function SettingsPopover({ onClose }) {
   if (!notify) return null
   return (
     <div className="settings-pop" onMouseLeave={onClose}>
+      <div className="settings-pop-title">Appearance</div>
+      <label className="settings-mute">
+        <input
+          type="checkbox"
+          checked={!!animations}
+          onChange={(e) => onToggleAnimations(e.target.checked)}
+        />
+        Background animation
+      </label>
       <div className="settings-pop-title">Notifications</div>
       <label className="settings-mute">
         <input type="checkbox" checked={!!notify.muted} onChange={(e) => setMode('muted', e.target.checked)} />
