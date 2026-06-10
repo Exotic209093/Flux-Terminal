@@ -123,8 +123,15 @@ scripts/
       drill-in timelines, and a topbar control cluster (model · running-agents ·
       remote-control toggle).
 
+- [x] **Watcher + notifications (Milestone A):** auto-detect any active `claude` session
+      (started anywhere) and signal turn-finished / error / blocked / usage-limit via OS
+      toast or quiet taskbar badge — configurable per-event via the ⚙ topbar popover.
+
+- [x] **Mission Control (Milestone B):** an all-sessions grid (topbar 🛰 tab or `Ctrl+M`)
+      grouping every recent session into **Needs you** / **Running** / **Idle** with live
+      cost, model, subagent count, and last-reply snippet; click a card to open it.
+
 ### Possible next steps
-- Auto-detect / attach to a `claude` you started manually (not via the button)
 - Timeline scrubber / playback controls; collapse long thinking blocks
 - Syntax-highlight code in the replay
 - Package installers (`electron-builder`) for a double-click app

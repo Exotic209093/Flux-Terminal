@@ -1,9 +1,7 @@
 # Milestone B — Mission Control (all-sessions grid)
 
 **Date:** 2026-06-10
-**Status:** approved direction; DEPENDS ON Milestone A (attention states) being merged.
-Implementor: read `2026-06-10-watcher-notifications-design.md` and the **as-landed**
-`src/main/attention.js` / `live.js` APIs before starting; adapt to what actually merged.
+**Status:** implemented 2026-06-10 (see `docs/superpowers/plans/2026-06-10-watcher-mission-control.md`). Built on the additive `monitor.js` + pure `missioncontrol.js` composer; push is once-per-tick + cardsChanged diff rather than per-session changed-only. See that plan's "Deviations" section.
 
 ## Goal
 

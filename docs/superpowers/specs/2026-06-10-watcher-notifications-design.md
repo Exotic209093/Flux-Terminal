@@ -1,7 +1,7 @@
 # Milestone A — "Flux watches for you": auto-attach + notifications
 
 **Date:** 2026-06-10
-**Status:** approved (ordering + toast/badge split approved by James; details delegated)
+**Status:** implemented 2026-06-10 (see `docs/superpowers/plans/2026-06-10-watcher-mission-control.md`). Auto-attach surfaces via Mission Control (origin:'auto') rather than the single live panel; built as an additive `monitor.js` rather than extending `live.js`. See that plan's "Deviations" section.
 
 ## Goal
 
