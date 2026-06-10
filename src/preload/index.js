@@ -101,6 +101,13 @@ contextBridge.exposeInMainWorld('flux', {
       const listener = (_e, payload) => cb(payload)
       ipcRenderer.on('notify:open-session', listener)
       return () => ipcRenderer.removeListener('notify:open-session', listener)
+    },
+    test: () => ipcRenderer.invoke('notify:test'),
+    history: () => ipcRenderer.invoke('notify:history'),
+    onHistoryAdd: (cb) => {
+      const listener = (_e, entry) => cb(entry)
+      ipcRenderer.on('notify:history-add', listener)
+      return () => ipcRenderer.removeListener('notify:history-add', listener)
     }
   },
   missioncontrol: {

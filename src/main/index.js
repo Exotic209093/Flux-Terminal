@@ -232,6 +232,8 @@ ipcMain.on('settings:setWorkspace', (_e, layout) => {
 ipcMain.on('notify:setOpenSession', (_e, sessionId) => {
   openSessionId = sessionId || null
 })
+ipcMain.handle('notify:test', () => { if (notifier) notifier.test(); return { ok: true } })
+ipcMain.handle('notify:history', () => (notifier ? notifier.getHistory() : []))
 
 // ---- Mission Control --------------------------------------------------------
 ipcMain.handle('missioncontrol:list', () => {
@@ -481,7 +483,8 @@ app.whenReady().then(() => {
     getSettings: () => settingsStore.get(),
     getOpenSessionId: () => openSessionId,
     NotificationImpl: Notification,
-    beep: () => require('electron').shell.beep()
+    beep: () => require('electron').shell.beep(),
+    onHistory: (entry) => emit('notify:history-add', entry)
   })
 
   sessionMonitor = new SessionMonitor({
