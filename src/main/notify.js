@@ -10,16 +10,21 @@ const EVENT_SETTING = {
   'usage:threshold': 'usageThreshold'
 }
 const COALESCE_MS = 10_000
+const MAX_HISTORY = 50
 
 function titleFor(notice) {
   const t = notice.title || 'Session'
+  const proj = notice.project ? ` · ${notice.project}` : ''
   switch (notice.event.type) {
-    case 'turn:finished':
-      return { title: '✓ Turn finished', body: t }
+    case 'turn:finished': {
+      const secs = Math.round((notice.event.durationMs || 0) / 1000)
+      const dur = secs >= 60 ? `${Math.round(secs / 60)}m` : `${secs}s`
+      return { title: `✓ Done in ${dur}`, body: t }
+    }
     case 'turn:error':
-      return { title: '⚠ Session error', body: t }
+      return { title: '⚠ Session error', body: t + proj }
     case 'blocked':
-      return { title: '⏳ Waiting on you', body: t }
+      return { title: '⏳ Waiting on you', body: t + proj }
     case 'usage:threshold':
       return { title: '📊 Usage limit near', body: `${notice.event.window} at ${notice.event.utilization}%` }
     default:
@@ -36,18 +41,19 @@ class Notifier {
     this.beep = opts.beep || (() => {})
     this.now = opts.now || Date.now
     this.lastDelivered = new Map() // sessionId -> ts
+    this.onHistory = opts.onHistory || (() => {})
+    this.history = []
   }
 
   deliver(notice) {
     const setting = this.getSettings().notify || {}
+    if (setting.muted) return // do-not-disturb
     const mode = setting[EVENT_SETTING[notice.event.type]] || 'off'
     if (mode === 'off') return
 
     const win = this.getWindow()
-    // Suppress if you're focused on exactly this session already.
     if (win && !win.isDestroyed() && win.isFocused() && this.getOpenSessionId() === notice.sessionId) return
 
-    // Coalesce repeats per session.
     const now = this.now()
     const last = this.lastDelivered.get(notice.sessionId)
     if (last != null && now - last < COALESCE_MS) return
@@ -55,8 +61,8 @@ class Notifier {
 
     if (mode === 'toast') this._toast(notice)
     else if (mode === 'badge') this._badge()
-
     if (setting.sound) this.beep()
+    this._record(notice, mode)
   }
 
   _toast(notice) {
@@ -96,6 +102,25 @@ class Notifier {
       /* ignore */
     }
   }
+
+  _record(notice, mode) {
+    const entry = { type: notice.event.type, sessionId: notice.sessionId, title: notice.title || 'Session', ts: this.now(), mode }
+    this.history.unshift(entry)
+    if (this.history.length > MAX_HISTORY) this.history.length = MAX_HISTORY
+    this.onHistory(entry)
+  }
+
+  getHistory() {
+    return this.history.slice()
+  }
+
+  /** Fire a sample notification through the real toast path (explicit user action). */
+  test() {
+    const notice = { sessionId: '__test__', title: 'Flux test notification', project: '', event: { type: 'turn:finished', durationMs: 90_000 } }
+    this._toast(notice)
+    if ((this.getSettings().notify || {}).sound) this.beep()
+    this._record(notice, 'test')
+  }
 }
 
-module.exports = { Notifier, titleFor, COALESCE_MS, EVENT_SETTING }
+module.exports = { Notifier, titleFor, COALESCE_MS, EVENT_SETTING, MAX_HISTORY }

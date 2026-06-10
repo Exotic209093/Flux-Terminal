@@ -123,3 +123,52 @@ test('clicking a toast focuses the window and sends notify:open-session', () => 
   assert.strictEqual(sent[0].channel, 'notify:open-session')
   assert.strictEqual(sent[0].payload.sessionId, 's1')
 })
+
+test('records delivered notices to a bounded history (newest first) and fires onHistory', () => {
+  const w = world()
+  const hist = []
+  const n = new Notifier({
+    getWindow: () => w.win, getSettings: () => w.settings, getOpenSessionId: () => w.openId,
+    NotificationImpl: fakeNotificationFactory(w.sink), beep: () => {}, now: () => w.now,
+    onHistory: (e) => hist.push(e)
+  })
+  n.deliver({ sessionId: 's1', title: 'A', event: { type: 'turn:error' } })
+  w.now = 20000
+  n.deliver({ sessionId: 's2', title: 'B', event: { type: 'turn:finished' } })
+  const h = n.getHistory()
+  assert.strictEqual(h.length, 2)
+  assert.strictEqual(h[0].sessionId, 's2') // newest first
+  assert.strictEqual(h[0].mode, 'badge') // turn:finished default = badge
+  assert.strictEqual(h[1].mode, 'toast') // turn:error default = toast
+  assert.strictEqual(hist.length, 2) // onHistory fired per delivery
+})
+
+test('history is bounded to MAX_HISTORY', () => {
+  const { Notifier, MAX_HISTORY } = require('../src/main/notify')
+  const w = world()
+  const n = new Notifier({ getWindow: () => w.win, getSettings: () => w.settings, getOpenSessionId: () => w.openId, NotificationImpl: fakeNotificationFactory(w.sink), beep: () => {}, now: () => w.now })
+  for (let i = 0; i < MAX_HISTORY + 10; i++) { w.now = i * 20000; n.deliver({ sessionId: 's' + i, title: 't', event: { type: 'turn:error' } }) }
+  assert.strictEqual(n.getHistory().length, MAX_HISTORY)
+})
+
+test('muted short-circuits delivery (no toast/badge/history)', () => {
+  const w = world()
+  w.settings.notify.muted = true
+  const n = makeNotifier(w)
+  n.deliver({ sessionId: 's', title: 'x', event: { type: 'turn:error' } })
+  assert.strictEqual(w.sink.shown.length, 0)
+  assert.strictEqual(w.win.overlay, null)
+  assert.strictEqual(n.getHistory().length, 0)
+})
+
+test('test() always shows a toast bypassing mute/suppression/coalescing and records mode test', () => {
+  const w = world()
+  w.settings.notify.muted = true
+  w.win.focused = true
+  w.openId = '__test__'
+  const n = makeNotifier(w)
+  n.test()
+  n.test() // immediate repeat — coalescing bypassed
+  assert.strictEqual(w.sink.shown.length, 2)
+  assert.strictEqual(n.getHistory()[0].mode, 'test')
+})
