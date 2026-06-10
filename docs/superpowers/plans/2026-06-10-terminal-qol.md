@@ -663,7 +663,7 @@ function deriveTitle({ title, profileName, cwd } = {}) {
 module.exports = { reducer, initialState, allPtyIds, deriveTitle }
 ```
 
-> Note: this file is `require`d by a `node --test` test (CommonJS) AND imported by the renderer (ESM via Vite). Vite handles `module.exports` interop for the renderer import (`import { reducer } from '../lib/workspace.js'` works). This mirrors the existing `templates.js` dual-use in the repo. Do NOT convert it to ESM-only.
+> CORRECTION (as-landed): the renderer import (`import { reducer } from '../lib/workspace'`) does NOT work with `module.exports` — Vite's CJS interop does not expose named exports here ("does not provide an export named 'initialState'"). The shipped file is ESM: `export { reducer, initialState, allPtyIds, deriveTitle }`, and `src/renderer/src/lib/package.json` = `{"type":"module"}` was added so the CommonJS `node --test` files that `require('../lib/workspace.js')` still load it (Node 24 require-of-ESM). The other lib files (templates/models/pricing/format/themes/useUsage) were already ESM, so the directory `type:module` is consistent. Use the ESM form, not `module.exports`.
 
 - [ ] **Step 4: Run to verify pass** — `node --test tests/workspace.test.js` (all pass).
 
