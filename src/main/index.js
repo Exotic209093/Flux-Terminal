@@ -18,11 +18,13 @@ const { SessionMonitor } = require('./monitor')
 const { Notifier } = require('./notify')
 const { PtyManager } = require('./ptymanager')
 const { registerAppScheme, serveAppProtocol } = require('./appprotocol')
+const { ClaudeRunner, resolveClaudeBin } = require('./resume')
 
 let mainWindow = null
 let ptyManager = null
 let liveTracker = null
 let usagePoller = null
+let claudeRunner = null
 
 // Prompt library — path is set in whenReady once app.getPath() is available.
 let promptStore = null
@@ -330,155 +332,18 @@ ipcMain.on('session:unwatch', () => {
   watchFile = null
 })
 
-// ---- Interactive resume ---------------------------------------------------
-// Send a message to an existing session: `claude --resume <id> -p` reads the
-// prompt from stdin (so the message never touches the shell command line). The
-// reply is appended to the session's JSONL — the watcher above surfaces it.
-let sendChild = null
-let lastSentAt = 0
-let interrupting = false
-ipcMain.handle('session:send', (_e, { sessionId, cwd, message, model }) => {
-  if (!sessionId || !message) return { ok: false, error: 'missing sessionId or message' }
-
-  // Guard: can't resume a session that's currently live (being written by another
-  // running claude) — it hangs/fails. Recent mtime + we didn't just send here =>
-  // it's active elsewhere. (Within 30s of our own send we skip this so a normal
-  // back-and-forth isn't false-flagged.)
-  const file = findSessionFileById(sessionId)
-  if (file) {
-    try {
-      const st = fs.statSync(file)
-      if (Date.now() - st.mtimeMs < 10000 && Date.now() - lastSentAt > 30000) {
-        return {
-          ok: false,
-          error:
-            "This session is active right now (being written elsewhere). You can't message an in-progress session — open a past one to continue it."
-        }
-      }
-    } catch {
-      /* ignore stat errors */
-    }
-  }
-  if (cwd && !fs.existsSync(cwd)) {
-    return { ok: false, error: "This session's working folder no longer exists:\n" + cwd }
-  }
-
-  try {
-    const args = ['--resume', sessionId, '-p']
-    if (model) args.push('--model', model)
-    const child = spawn('claude', args, {
-      cwd: cwd || os.homedir(),
-      shell: true,
-      windowsHide: true
-    })
-    sendChild = child
-    lastSentAt = Date.now()
-    emit('session:sendstatus', { sessionId, state: 'running' })
-
-    let stderr = ''
-    let settled = false
-    const finish = (state, error) => {
-      if (settled) return
-      settled = true
-      clearTimeout(timer)
-      if (interrupting) {
-        state = 'interrupted'
-        error = null
-        interrupting = false
-      }
-      emit('session:sendstatus', { sessionId, state, error: error || null })
-      sendChild = null
-    }
-    const timer = setTimeout(() => {
-      try {
-        child.kill()
-      } catch {
-        /* ignore */
-      }
-      finish('error', "claude didn't respond in time. The session may be open elsewhere, or its folder moved.")
-    }, 150000)
-
-    child.stderr.on('data', (d) => {
-      stderr += d.toString()
-    })
-    child.on('error', (err) => finish('error', err.message))
-    child.on('exit', (code) =>
-      finish(code === 0 ? 'done' : 'error', code === 0 ? null : stderr.slice(0, 400) || 'claude exited ' + code)
-    )
-    child.stdin.write(message)
-    child.stdin.end()
-    return { ok: true }
-  } catch (err) {
-    return { ok: false, error: err.message }
-  }
-})
-
-// ---- New chat -------------------------------------------------------------
-// Start a fresh session in the rich UI: generate a uuid, run
-// `claude -p --session-id <uuid> --model <m>` from the chosen cwd, prompt on
-// stdin. Afterwards <uuid>.jsonl exists and is a normal resumable session.
-const { randomUUID } = require('crypto')
-ipcMain.handle('session:new', (_e, { message, cwd, model }) => {
-  if (!message) return { ok: false, error: 'missing message' }
-  const dir = cwd || os.homedir()
-  if (!fs.existsSync(dir)) return { ok: false, error: 'Working folder does not exist:\n' + dir }
-  const sessionId = randomUUID()
-  try {
-    const args = ['-p', '--session-id', sessionId]
-    if (model) args.push('--model', model)
-    const child = spawn('claude', args, { cwd: dir, shell: true, windowsHide: true })
-    sendChild = child
-    lastSentAt = Date.now()
-    emit('session:sendstatus', { sessionId, state: 'running' })
-
-    let stderr = ''
-    let settled = false
-    const finish = (state, error) => {
-      if (settled) return
-      settled = true
-      clearTimeout(timer)
-      if (interrupting) {
-        state = 'interrupted'
-        error = null
-        interrupting = false
-      }
-      emit('session:sendstatus', { sessionId, state, error: error || null })
-      sendChild = null
-    }
-    const timer = setTimeout(() => {
-      try {
-        child.kill()
-      } catch {
-        /* ignore */
-      }
-      finish('error', "claude didn't respond in time.")
-    }, 150000)
-    child.stderr.on('data', (d) => {
-      stderr += d.toString()
-    })
-    child.on('error', (err) => finish('error', err.message))
-    child.on('exit', (code) =>
-      finish(code === 0 ? 'done' : 'error', code === 0 ? null : stderr.slice(0, 400) || 'claude exited ' + code)
-    )
-    child.stdin.write(message)
-    child.stdin.end()
-    return { ok: true, sessionId, cwd: dir }
-  } catch (err) {
-    return { ok: false, error: err.message }
-  }
-})
-
-// ---- Interrupt ------------------------------------------------------------
-ipcMain.handle('session:interrupt', () => {
-  if (!sendChild) return { ok: false, error: 'nothing running' }
-  interrupting = true
-  try {
-    sendChild.kill()
-  } catch {
-    /* already gone */
-  }
-  return { ok: true }
-})
+// ---- Interactive resume + new chat ----------------------------------------
+// All claude child-process plumbing lives in resume.js: input validation,
+// resolved binary, per-sessionId child Map (concurrent sends don't clobber).
+ipcMain.handle('session:send', (_e, args) =>
+  claudeRunner ? claudeRunner.send(args || {}) : { ok: false, error: 'not ready' }
+)
+ipcMain.handle('session:new', (_e, args) =>
+  claudeRunner ? claudeRunner.newChat(args || {}) : { ok: false, error: 'not ready' }
+)
+ipcMain.handle('session:interrupt', () =>
+  claudeRunner ? claudeRunner.interrupt() : { ok: false, error: 'nothing running' }
+)
 
 // ---- Folder picker (new-chat working dir) ---------------------------------
 ipcMain.handle('dialog:pickFolder', async () => {
@@ -533,6 +398,12 @@ app.whenReady().then(() => {
   ptyManager = new PtyManager({
     onData: (id, data) => emit('pty:data', { id, data }),
     onExit: (id, code) => emit('pty:exit', { id, code })
+  })
+
+  claudeRunner = new ClaudeRunner({
+    bin: resolveClaudeBin(),
+    onStatus: (sessionId, state, error) => emit('session:sendstatus', { sessionId, state, error }),
+    findFile: findSessionFileById
   })
 
   const { createUsageState, observeUsage } = require('./attention')
@@ -623,12 +494,6 @@ app.on('window-all-closed', () => {
   if (usagePoller) usagePoller.stop()
   if (sessionMonitor) sessionMonitor.stop()
   if (watchTimer) clearInterval(watchTimer)
-  if (sendChild) {
-    try {
-      sendChild.kill()
-    } catch {
-      /* ignore */
-    }
-  }
+  if (claudeRunner) claudeRunner.killAll()
   if (process.platform !== 'darwin') app.quit()
 })

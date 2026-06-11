@@ -33,7 +33,8 @@ export default defineConfig({
           monitor: resolve('src/main/monitor.js'),
           notify: resolve('src/main/notify.js'),
           missioncontrol: resolve('src/main/missioncontrol.js'),
-          appprotocol: resolve('src/main/appprotocol.js')
+          appprotocol: resolve('src/main/appprotocol.js'),
+          resume: resolve('src/main/resume.js')
         },
         output: {
           entryFileNames: '[name].js'
