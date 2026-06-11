@@ -89,8 +89,8 @@ function createWindow() {
 
 // ---- PTY bridge (id-keyed; one pane === one pty) --------------------------
 ipcMain.handle('pty:spawn', (_e, { id, cols, rows, cwd, shell }) => {
-  if (ptyManager) ptyManager.spawn(id, { cols, rows, cwd, shell })
-  return { ok: true, id }
+  const p = ptyManager ? ptyManager.spawn(id, { cols, rows, cwd, shell }) : null
+  return p ? { ok: true, id } : { ok: false, id, error: 'failed to start terminal (working folder may not exist)' }
 })
 ipcMain.on('pty:write', (_e, { id, data }) => {
   if (ptyManager) ptyManager.write(id, data)

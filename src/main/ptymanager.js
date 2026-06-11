@@ -22,7 +22,14 @@ class PtyManager {
 
   spawn(id, opts) {
     if (this.ptys.has(id)) return this.ptys.get(id) // idempotent
-    const p = this._spawn(opts)
+    let p
+    try {
+      p = this._spawn(opts)
+    } catch {
+      // node-pty throws on a nonexistent cwd; match the {ok:false} contract
+      // every other channel has instead of rejecting the invoke promise.
+      return null
+    }
     p.onData((data) => this.onData(id, data))
     p.onExit(({ exitCode }) => {
       this.ptys.delete(id)

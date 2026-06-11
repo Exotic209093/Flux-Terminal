@@ -77,3 +77,12 @@ test('killAll kills every pty and empties the map', () => {
   assert.ok(created[0].killed && created[1].killed)
   assert.strictEqual(mgr.size, 0)
 })
+
+test('a throwing spawn impl returns null and leaves no entry (bad cwd must not reject the IPC)', () => {
+  const mgr = new PtyManager({ spawn: () => { throw new Error('ENOENT: no such cwd') } })
+  let result
+  assert.doesNotThrow(() => { result = mgr.spawn('a', { cwd: 'C:\\gone' }) })
+  assert.strictEqual(result, null)
+  assert.strictEqual(mgr.has('a'), false)
+  assert.doesNotThrow(() => { mgr.write('a', 'x'); mgr.kill('a') })
+})
