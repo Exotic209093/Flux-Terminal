@@ -83,6 +83,7 @@ test('a throwing spawn impl returns null and leaves no entry (bad cwd must not r
   let result
   assert.doesNotThrow(() => { result = mgr.spawn('a', { cwd: 'C:\\gone' }) })
   assert.strictEqual(result, null)
+  assert.match(mgr.lastSpawnError, /ENOENT/)
   assert.strictEqual(mgr.has('a'), false)
   assert.doesNotThrow(() => { mgr.write('a', 'x'); mgr.kill('a') })
 })

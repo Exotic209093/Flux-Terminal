@@ -9,6 +9,7 @@ class PtyManager {
     this._spawn = spawn
     this.onData = onData
     this.onExit = onExit
+    this.lastSpawnError = null
     this.ptys = new Map() // id -> pty
   }
 
@@ -25,9 +26,10 @@ class PtyManager {
     let p
     try {
       p = this._spawn(opts)
-    } catch {
-      // node-pty throws on a nonexistent cwd; match the {ok:false} contract
-      // every other channel has instead of rejecting the invoke promise.
+    } catch (err) {
+      // node-pty throws on a bad cwd or shell binary; match the {ok:false}
+      // contract every other channel has instead of rejecting the invoke.
+      this.lastSpawnError = err.message
       return null
     }
     p.onData((data) => this.onData(id, data))
