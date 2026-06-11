@@ -20,14 +20,15 @@ function createTail(file, { fsImpl = fs } = {}) {
     get offset() {
       return offset
     },
-    /** => { reset, objects, size, mtimeMs } */
+    /** => { reset, objects, parseErrors, size, mtimeMs } */
     readDelta() {
       const stat = fsImpl.statSync(file)
       if (stat.size < offset) {
         offset = 0
-        return { reset: true, objects: [], size: stat.size, mtimeMs: stat.mtimeMs }
+        return { reset: true, objects: [], parseErrors: 0, size: stat.size, mtimeMs: stat.mtimeMs }
       }
       const objects = []
+      let parseErrors = 0
       if (stat.size > offset) {
         const len = stat.size - offset
         const buf = Buffer.alloc(len)
@@ -46,10 +47,13 @@ function createTail(file, { fsImpl = fs } = {}) {
             if (!line.trim()) continue
             const o = parseLine(line)
             if (o) objects.push(o)
+            // invalid COMPLETE lines count as parse errors (the truncated final
+            // line never reaches here — it's held back for the next call)
+            else parseErrors++
           }
         }
       }
-      return { reset: false, objects, size: stat.size, mtimeMs: stat.mtimeMs }
+      return { reset: false, objects, parseErrors, size: stat.size, mtimeMs: stat.mtimeMs }
     }
   }
 }

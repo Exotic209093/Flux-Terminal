@@ -54,15 +54,17 @@ test('readDelta reports size and mtimeMs from the stat it took', () => {
   assert.strictEqual(typeof d.mtimeMs, 'number')
 })
 
-test('invalid JSON lines are skipped, multi-byte UTF-8 offsets stay correct', () => {
+test('invalid JSON lines are counted as parse errors, multi-byte UTF-8 offsets stay correct', () => {
   const file = tmpFile()
   fs.writeFileSync(file, '{"t":"héllo — ünïcode"}\nnot json\n')
   const tail = createTail(file)
   const d1 = tail.readDelta()
   assert.strictEqual(d1.objects.length, 1)
+  assert.strictEqual(d1.parseErrors, 1) // the complete-but-invalid line
   fs.appendFileSync(file, '{"t":"next"}\n')
   const d2 = tail.readDelta()
   assert.strictEqual(d2.objects.length, 1)
+  assert.strictEqual(d2.parseErrors, 0)
   assert.strictEqual(d2.objects[0].t, 'next')
 })
 

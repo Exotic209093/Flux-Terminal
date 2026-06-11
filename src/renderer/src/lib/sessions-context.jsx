@@ -12,20 +12,22 @@ export function SessionsProvider({ children }) {
 
   useEffect(() => {
     let alive = true
+    let pushed = false // a sessions:changed push is fresher than the seed reply
     window.flux.sessions
       .list({ limit: 500 })
       .then((res) => {
-        if (!alive) return
+        if (!alive || pushed) return
         if (res.ok) setSessions(res.sessions)
         else setError(res.error || 'failed to load sessions')
         setLoading(false)
       })
       .catch((e) => {
-        if (!alive) return
+        if (!alive || pushed) return
         setError(String(e))
         setLoading(false)
       })
     const off = window.flux.sessions.onChanged(({ sessions: next }) => {
+      pushed = true
       setSessions(next)
       setLoading(false)
       setError(null)

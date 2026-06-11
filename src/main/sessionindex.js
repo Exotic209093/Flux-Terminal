@@ -10,7 +10,6 @@
 //                              ring timeline so monitor's snippet/lastRole
 //                              helpers keep working unchanged)
 //   open-session watch      -> subscribe()/unsubscribe() + delta events
-//                              (Task 3)
 const fs = require('fs')
 const path = require('path')
 const sessionsMod = require('./sessions')
@@ -89,7 +88,7 @@ class SessionIndex {
 
     this.summaries = new Map() // file -> { meta, summary, ring }
     this.hot = new Map() // file -> { tail, model } (files changed since boot, inside the recent window)
-    this.watchSlot = null // { file, tail, model, timeline } — the open session (Task 3)
+    this.watchSlot = null // { file, tail, model, timeline } — the open session
     this.mode = 'starting' // 'watch' | 'sweep-only'
     this.watcher = null
     this.sweepTimer = null
@@ -202,6 +201,7 @@ class SessionIndex {
       }
     }
     for (const o of delta.objects) applyEvent(o, hot.model, entry.ring)
+    hot.model.parseErrors += delta.parseErrors || 0
     if (entry.ring.length > RING_MAX) entry.ring.splice(0, entry.ring.length - RING_MAX)
     // Image items carry base64 — keep the ring light (live.js does the same).
     for (let i = 0; i < entry.ring.length; i++) {
@@ -252,7 +252,7 @@ class SessionIndex {
     }
   }
 
-  // ---- fs events + slot (completed in Task 3) -------------------------------
+  // ---- fs events + the open-session watch slot ------------------------------
 
   _onFsEvent(rel) {
     const parts = String(rel).split(/[\\/]/)
@@ -287,6 +287,7 @@ class SessionIndex {
       return { ok: false, error: err.message, file }
     }
     for (const o of delta.objects) applyEvent(o, model, timeline)
+    model.parseErrors += delta.parseErrors || 0
     this.watchSlot = { file, tail, model, timeline }
     return this._slotSnapshot()
   }
@@ -325,12 +326,14 @@ class SessionIndex {
         return
       }
       for (const o of delta.objects) applyEvent(o, s.model, s.timeline)
+      s.model.parseErrors += delta.parseErrors || 0
       this.onWatchRefresh({ file: s.file, session: this._slotSnapshot() })
       return
     }
-    if (!delta.objects.length) return
+    if (!delta.objects.length && !delta.parseErrors) return
     const before = s.timeline.length
     for (const o of delta.objects) applyEvent(o, s.model, s.timeline)
+    s.model.parseErrors += delta.parseErrors || 0
     const items = s.timeline.slice(before)
     this.onWatchAppend({ file: s.file, session: { ...snapshotModel(s.model), ok: true }, items })
   }
