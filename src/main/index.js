@@ -3,7 +3,7 @@ const path = require('path')
 const fs = require('fs')
 const os = require('os')
 const { createPty } = require('./pty')
-const { listSessions, findSessionFileById } = require('./sessions')
+const { listSessions, findSessionFileById, isSessionPathAllowed } = require('./sessions')
 const { parseSessionFile } = require('./parser')
 const { LiveTracker } = require('./live')
 const { listSkills, installBundledSkill } = require('./skills')
@@ -115,6 +115,7 @@ ipcMain.handle('sessions:list', (_e, opts) => {
 
 ipcMain.handle('session:read', (_e, file) => {
   try {
+    if (!isSessionPathAllowed(file)) return { ok: false, error: 'path not allowed' }
     return { ok: true, session: parseSessionFile(file, { timeline: true }) }
   } catch (err) {
     return { ok: false, error: err.message }
@@ -144,6 +145,7 @@ ipcMain.handle('skills:install', (_e, name) => {
 // ---- Subagents ------------------------------------------------------------
 ipcMain.handle('subagents:list', (_e, { file, live }) => {
   try {
+    if (!isSessionPathAllowed(file)) return { ok: false, error: 'path not allowed', subagents: [] }
     return { ok: true, subagents: listSubagents(file, { live: !!live }) }
   } catch (err) {
     return { ok: false, error: err.message, subagents: [] }
@@ -151,6 +153,7 @@ ipcMain.handle('subagents:list', (_e, { file, live }) => {
 })
 ipcMain.handle('subagent:read', (_e, { file, agentId }) => {
   try {
+    if (!isSessionPathAllowed(file)) return { ok: false, error: 'path not allowed' }
     return { ok: true, detail: readSubagent(file, agentId) }
   } catch (err) {
     return { ok: false, error: err.message }
@@ -317,6 +320,7 @@ let watchTimer = null
 let watchMtime = 0
 
 ipcMain.on('session:watch', (_e, file) => {
+  if (!isSessionPathAllowed(file)) return
   watchFile = file
   try {
     watchMtime = fs.statSync(file).mtimeMs
@@ -343,6 +347,10 @@ ipcMain.on('session:watch', (_e, file) => {
 })
 ipcMain.on('session:unwatch', () => {
   watchFile = null
+  if (watchTimer) {
+    clearInterval(watchTimer)
+    watchTimer = null
+  }
 })
 
 // ---- Interactive resume + new chat ----------------------------------------

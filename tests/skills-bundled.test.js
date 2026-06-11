@@ -24,3 +24,11 @@ test('packaged: falls back to process.resourcesPath/skills when appPath/skills i
     process.resourcesPath = orig
   }
 })
+
+const { installBundledSkill } = require('../src/main/skills')
+
+test('installBundledSkill rejects traversal names', () => {
+  assert.strictEqual(installBundledSkill('C:\\app', '..\\..\\evil').ok, false)
+  assert.strictEqual(installBundledSkill('C:\\app', 'a/b').ok, false)
+  assert.strictEqual(installBundledSkill('C:\\app', '').ok, false)
+})

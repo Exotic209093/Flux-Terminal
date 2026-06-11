@@ -118,10 +118,33 @@ function findSessionFileById(sessionId) {
   return null
 }
 
+/**
+ * May the renderer ask main to read/watch this file? Transcript reads are
+ * boundary-checked to .jsonl files under ~/.claude — session:read and
+ * session:watch would otherwise read+return any absolute path over IPC.
+ * Pure for tests: baseDir/platform injectable.
+ */
+function isSessionPathAllowed(file, { baseDir, platform = process.platform } = {}) {
+  if (typeof file !== 'string' || !file.toLowerCase().endsWith('.jsonl')) return false
+  // Use the platform-appropriate path module so posix tests work on Windows hosts.
+  const p = platform === 'win32' ? path.win32 : path.posix
+  const base = p.normalize(baseDir || p.join(os.homedir(), '.claude'))
+  let resolved
+  try {
+    resolved = p.normalize(p.resolve(file))
+  } catch {
+    return false
+  }
+  const a = platform === 'win32' ? resolved.toLowerCase() : resolved
+  const b = platform === 'win32' ? base.toLowerCase() : base
+  return a.startsWith(b + p.sep)
+}
+
 module.exports = {
   projectsDir,
   listSessionFiles,
   listSessions,
   approxDecodeProject,
-  findSessionFileById
+  findSessionFileById,
+  isSessionPathAllowed
 }
