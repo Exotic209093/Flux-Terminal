@@ -42,7 +42,7 @@ export default function App() {
 
   const openFileRef = useRef(null) // the file currently watched, for refresh matching
   const [searchOpen, setSearchOpen] = useState(false)
-  const [scrollTarget, setScrollTarget] = useState(null) // { idx, key }
+  const [scrollTarget, setScrollTarget] = useState(null) // { idx, key, sessionId }
 
   const [live, setLive] = useState(null)
   useEffect(() => window.flux.live.onUpdate(setLive), [])
@@ -133,7 +133,7 @@ export default function App() {
       openById(sessionId, { file })
       // setScrollTarget with a unique key so the effect re-triggers even if
       // the same idx is selected twice.
-      setScrollTarget({ idx: msgIdx, key: Date.now() })
+      setScrollTarget({ idx: msgIdx, key: Date.now(), sessionId })
     },
     [openById]
   )

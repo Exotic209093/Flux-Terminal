@@ -122,14 +122,17 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
   }, [totalCount, pending])
 
   // Scroll to a specific timeline index and briefly flash it.
-  // scrollTarget = { idx, key } — runs when the target changes AND re-runs when
-  // detail finishes loading (jumping into a not-yet-open session used to bail
-  // silently on the loading early-return). consumedScrollKey stops live
-  // appends from re-scrolling an already-consumed target.
+  // scrollTarget = { idx, key, sessionId } — runs when the target changes AND
+  // re-runs when detail finishes loading (jumping into a not-yet-open session
+  // used to bail silently on the loading early-return). consumedScrollKey
+  // stops live appends from re-scrolling an already-consumed target; the
+  // sessionId check stops a stale never-consumed target (failed open, user
+  // switched sessions mid-load) from firing on the wrong session.
   useEffect(() => {
     if (scrollTarget == null || scrollTarget.idx == null) return
     if (consumedScrollKey.current === scrollTarget.key) return
     if (!detail || detail.ok === false) return // wait for load; deps re-run us
+    if (scrollTarget.sessionId && detail.sessionId !== scrollTarget.sessionId) return
     const el = scrollRef.current
     if (!el) return
     const item = el.querySelectorAll('.tl-item')[scrollTarget.idx]
