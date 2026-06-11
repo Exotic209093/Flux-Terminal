@@ -75,6 +75,8 @@ function freshModel(file) {
     lastTool: null,
     lastContextTokens: 0, // prompt size of the most recent assistant turn (= current context fill)
     lastUserPrompt: null,
+    turnDurationCount: 0, // system/turn_duration records seen (exact turn closes)
+    lastTurnDurationMs: 0,
     parseErrors: 0,
     errorCount: 0, // best-effort count of error/failure records (attention.js consumes deltas)
     lineCount: 0
@@ -91,6 +93,19 @@ function isErrorRecord(o) {
   if (o.isApiErrorMessage === true) return true
   if (o.type === 'result' && o.is_error === true) return true
   if (o.type === 'system' && o.subtype === 'error') return true
+  return false
+}
+
+/**
+ * Is this user record a real human prompt? Most type:'user' records (~87%
+ * measured) are tool_result carriers, and isMeta marks injected context —
+ * neither opens a turn nor counts as a message.
+ */
+function isRealUserPrompt(o) {
+  if (o.isMeta) return false
+  const content = o.message && o.message.content
+  if (typeof content === 'string') return content.trim().length > 0
+  if (Array.isArray(content)) return content.length > 0 && !content.some((b) => b && b.type === 'tool_result')
   return false
 }
 
@@ -120,7 +135,7 @@ function applyEvent(o, model, timeline) {
       if (typeof o.lastPrompt === 'string') model.lastUserPrompt = o.lastPrompt
       break
     case 'user':
-      model.counts.user++
+      if (isRealUserPrompt(o)) model.counts.user++
       walkContent(o, model, timeline, 'user')
       break
     case 'assistant': {
@@ -146,6 +161,10 @@ function applyEvent(o, model, timeline) {
     }
     case 'system':
       model.counts.system++
+      if (o.subtype === 'turn_duration') {
+        model.turnDurationCount++
+        if (typeof o.durationMs === 'number') model.lastTurnDurationMs = o.durationMs
+      }
       break
     default:
       break
@@ -269,4 +288,4 @@ function parseSessionFile(filePath, opts = {}) {
   return finalize(model)
 }
 
-module.exports = { parseSessionFile, parseLine, freshModel, applyEvent, finalize, isErrorRecord }
+module.exports = { parseSessionFile, parseLine, freshModel, applyEvent, finalize, isErrorRecord, isRealUserPrompt }
