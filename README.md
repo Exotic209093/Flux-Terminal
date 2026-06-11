@@ -145,6 +145,13 @@ scripts/
       fixing the `file://` blank-window bug) and `npm run dist` produces an unsigned Windows
       NSIS installer (node-pty asar-unpacked). Code signing is a documented future step.
 
+- [x] **Correctness + security week:** token usage deduped by message.id (was
+      2.4-2.75x inflated), exact turn durations from `turn_duration` records
+      (turn-finished notifications now fire), validated claude spawns in
+      `resume.js` (concurrent sends, correct interrupt), CSP + sandbox +
+      window-open/navigation hardening, bundled skills actually packaged,
+      transcript reads boundary-checked to `~/.claude`.
+
 ### Possible next steps
 - Timeline scrubber / playback controls; collapse long thinking blocks
 - Syntax-highlight code in the replay
