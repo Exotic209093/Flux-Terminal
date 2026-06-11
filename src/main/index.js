@@ -209,6 +209,21 @@ ipcMain.handle('prompts:used', (_e, id) => {
 
 // ---- Notification settings --------------------------------------------------
 ipcMain.handle('settings:get', () => (settingsStore ? settingsStore.get() : null))
+// Synchronous read so the preload can hand the renderer its settings before
+// first paint (avoids a flash of the default theme). settingsStore is assigned
+// before createWindow in whenReady, so it exists by the time this fires.
+ipcMain.on('settings:getSync', (e) => {
+  e.returnValue = settingsStore ? settingsStore.get() : null
+})
+ipcMain.handle('settings:set', (_e, { path, value }) => {
+  if (!settingsStore) return { ok: false, error: 'no store' }
+  try {
+    return { ok: true, settings: settingsStore.setByPath(path, value) }
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+})
+ipcMain.handle('app:version', () => app.getVersion())
 ipcMain.handle('settings:setNotify', (_e, { key, value }) => {
   try {
     if (!settingsStore) return { ok: false, error: 'not ready' }
@@ -485,11 +500,10 @@ ipcMain.on('live:stop', () => {
 // ---- App lifecycle --------------------------------------------------------
 app.whenReady().then(() => {
   serveAppProtocol(protocol, path.join(__dirname, '../renderer'))
+  settingsStore = new SettingsStore(path.join(app.getPath('userData'), 'settings.json'))
   createWindow()
   promptStore = new PromptStore(path.join(app.getPath('userData'), 'prompts.json'))
   promptStore.seed()
-
-  settingsStore = new SettingsStore(path.join(app.getPath('userData'), 'settings.json'))
 
   notifier = new Notifier({
     getWindow: () => mainWindow,
@@ -568,6 +582,8 @@ app.whenReady().then(() => {
           await wc.executeJavaScript(
             "[...document.querySelectorAll('.tab')].find((b) => /Mission/.test(b.textContent))?.click()"
           )
+        } else if (process.env.FLUX_SMOKE_VIEW === 'settings') {
+          await wc.executeJavaScript("document.querySelector('.settings-gear')?.click()")
         }
         if (process.env.FLUX_SMOKE_THEME) {
           const t = JSON.stringify(process.env.FLUX_SMOKE_THEME)
