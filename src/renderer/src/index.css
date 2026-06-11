@@ -1727,23 +1727,10 @@ body,
   white-space: nowrap;
 }
 
-/* Notification settings popover */
-.settings-anchor { position: relative; display: inline-flex; }
+/* Settings gear (topbar) */
 .settings-gear { background: none; border: 1px solid var(--border); color: var(--text-dim);
   border-radius: 6px; padding: 2px 8px; cursor: pointer; }
 .settings-gear.on, .settings-gear:hover { color: var(--text); border-color: var(--accent); }
-.settings-pop { position: absolute; top: 130%; right: 0; z-index: 50; width: 280px;
-  background: var(--bg-elev); border: 1px solid var(--border); border-radius: 10px;
-  padding: 12px; box-shadow: 0 8px 30px rgba(0,0,0,.45); }
-.settings-pop-title { font-weight: 600; margin-bottom: 8px; color: var(--text); }
-.settings-row { display: flex; align-items: center; justify-content: space-between; margin: 6px 0; }
-.settings-row-label { color: var(--text-dim); font-size: 12px; }
-.settings-seg { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
-.settings-seg .seg { background: none; border: none; color: var(--text-faint); font-size: 11px;
-  padding: 3px 7px; cursor: pointer; }
-.settings-seg .seg.on { background: var(--accent); color: var(--bg); }
-.settings-sound { display: flex; align-items: center; gap: 6px; margin-top: 10px;
-  color: var(--text-dim); font-size: 12px; }
 
 /* Mission Control */
 .mission { padding: 16px; overflow-y: auto; height: 100%; }
@@ -1816,11 +1803,6 @@ body,
 .pane-search-btn { background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 13px; padding: 0 4px; }
 .pane-search-btn:hover { color: var(--text); }
 
-.settings-mute { display: flex; align-items: center; gap: 6px; margin: 4px 0 10px; color: var(--text); font-size: 12px; }
-.settings-test { margin-top: 10px; width: 100%; background: var(--accent); color: var(--bg); border: none;
-  border-radius: 6px; padding: 6px; cursor: pointer; font-size: 12px; }
-.settings-test:hover { filter: brightness(1.08); }
-
 /* ---- Notification bell --------------------------------------------------- */
 .bell-anchor { position: relative; display: inline-flex; }
 .bell-btn { background: none; border: 1px solid var(--border); color: var(--text-dim); border-radius: 6px;
@@ -1883,7 +1865,6 @@ html[data-anim="on"] .stats-panel,
 html[data-anim="on"] .skill-card,
 html[data-anim="on"] .mcard,
 html[data-anim="on"] .prompt-card,
-html[data-anim="on"] .settings-pop,
 html[data-anim="on"] .bell-panel {
   background: var(--glass-panel);
   backdrop-filter: blur(10px);

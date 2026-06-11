@@ -55,7 +55,7 @@ export default function App() {
       } else if (e.ctrlKey && !e.shiftKey && (e.key === 'm' || e.key === 'M')) {
         e.preventDefault()
         setView((v) => (v === 'mission' ? 'terminal' : 'mission'))
-      } else if (e.ctrlKey && e.key === ',') {
+      } else if (e.ctrlKey && !e.shiftKey && e.key === ',') {
         e.preventDefault()
         setView((v) => (v === 'settings' ? 'terminal' : 'settings'))
       }
