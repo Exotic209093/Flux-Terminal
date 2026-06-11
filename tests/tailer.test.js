@@ -72,3 +72,12 @@ test('a missing file throws from readDelta (caller decides policy)', () => {
   const tail = createTail(path.join(os.tmpdir(), 'flux-tail-missing', 'nope.jsonl'))
   assert.throws(() => tail.readDelta())
 })
+
+test('startOffset resumes a tail mid-file (search index restart case)', () => {
+  const file = tmpFile()
+  const first = '{"a":1}\n'
+  fs.writeFileSync(file, first + '{"a":2}\n')
+  const tail = createTail(file, { startOffset: Buffer.byteLength(first, 'utf8') })
+  const d = tail.readDelta()
+  assert.deepStrictEqual(d.objects.map((o) => o.a), [2])
+})

@@ -14,8 +14,8 @@
 const fs = require('fs')
 const { parseLine } = require('./parser')
 
-function createTail(file, { fsImpl = fs } = {}) {
-  let offset = 0
+function createTail(file, { fsImpl = fs, startOffset = 0 } = {}) {
+  let offset = startOffset
   return {
     get offset() {
       return offset

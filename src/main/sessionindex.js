@@ -85,6 +85,7 @@ class SessionIndex {
     this.onSessions = opts.onSessions || (() => {})
     this.onWatchRefresh = opts.onWatchRefresh || (() => {})
     this.onWatchAppend = opts.onWatchAppend || (() => {})
+    this.onFileChanged = opts.onFileChanged || (() => {}) // (file, { deleted }) — search index feed
 
     this.summaries = new Map() // file -> { meta, summary, ring }
     this.hot = new Map() // file -> { tail, model } (files changed since boot, inside the recent window)
@@ -213,6 +214,7 @@ class SessionIndex {
     entry.summary = summarizeModel(entry.meta, hot.model, entry.ring)
     this._scheduleEmit()
     this._scheduleSave()
+    this.onFileChanged(file, { deleted: false })
   }
 
   _evict(file) {
@@ -221,6 +223,7 @@ class SessionIndex {
     if (this.summaries.delete(file) | this.hot.delete(file)) {
       this._scheduleEmit()
       this._scheduleSave()
+      this.onFileChanged(file, { deleted: true })
     }
   }
 

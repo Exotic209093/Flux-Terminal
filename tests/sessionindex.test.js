@@ -311,6 +311,25 @@ test('subscribe returns the full parsed session and deltas emit appended items',
   idx.dispose()
 })
 
+test('onFileChanged fires on updates and evictions', async () => {
+  const world = makeWorld()
+  const file = world.addFile('s1', [userLine('hi')], 500)
+  const changed = []
+  const { idx } = indexFor(world, { overrides: { onFileChanged: (f, info) => changed.push({ f, deleted: !!(info && info.deleted) }) } })
+  idx.start()
+  await tick()
+  assert.ok(changed.find((c) => c.f === file && !c.deleted)) // boot index counts as a change
+
+  world.append(file, [assistantLine('m1', 'more')], 700)
+  idx._update(file)
+  assert.strictEqual(changed.filter((c) => c.f === file && !c.deleted).length, 2)
+
+  world.files.delete(file)
+  idx._sweep()
+  assert.ok(changed.find((c) => c.f === file && c.deleted))
+  idx.dispose()
+})
+
 test('a slot reset (truncated file) re-seeds and emits a full refresh', async () => {
   const world = makeWorld()
   const file = world.addFile('s1', [userLine('hi'), assistantLine('m1', 'one')], 500)
