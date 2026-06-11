@@ -32,6 +32,7 @@ test('html responses carry a restrictive Content-Security-Policy; assets do not'
   assert.strictEqual(html['content-security-policy'], CSP)
   assert.match(CSP, /default-src 'self'/)
   assert.match(CSP, /object-src 'none'/)
+  assert.match(CSP, /script-src 'self'(;|$)/)
   assert.ok(!CSP.includes("unsafe-eval"))
   const js = headersFor('.js')
   assert.strictEqual(js['content-security-policy'], undefined)

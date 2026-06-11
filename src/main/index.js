@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, Notification, nativeImage, protocol } = require('electron')
+const { app, BrowserWindow, ipcMain, dialog, Notification, nativeImage, protocol, session } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const os = require('os')
@@ -386,6 +386,9 @@ ipcMain.on('live:stop', () => {
 // ---- App lifecycle --------------------------------------------------------
 app.whenReady().then(() => {
   serveAppProtocol(protocol, path.join(__dirname, '../renderer'))
+  // The renderer never needs HTML5 permissions (camera/mic/geolocation/
+  // notifications — the Notifier lives in main); deny requests outright.
+  session.defaultSession.setPermissionRequestHandler((_wc, _permission, callback) => callback(false))
   settingsStore = new SettingsStore(path.join(app.getPath('userData'), 'settings.json'))
   createWindow()
   promptStore = new PromptStore(path.join(app.getPath('userData'), 'prompts.json'))
