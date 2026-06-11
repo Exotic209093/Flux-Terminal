@@ -14,14 +14,14 @@ import { DEFAULT_MODEL, isKnownModel } from './lib/models'
 import ThemeBackground from './components/ThemeBackground'
 import { resolveMotion, prefersReducedMotion } from './lib/appearance'
 import { useSettings } from './lib/settings-context'
+import { useSessions } from './lib/sessions-context'
+import { resolveSession, mergeAppend } from './lib/sessionlist.js'
 
 // The terminal stays MOUNTED at all times so its PTY (and any running `claude`)
 // survives switching to a session/stats view and back. Opening a session also
 // watches its file so newly-appended turns (e.g. from sending a message) stream in.
 export default function App() {
-  const [sessions, setSessions] = useState([])
-  const [sessionsLoading, setSessionsLoading] = useState(true)
-  const [sessionsError, setSessionsError] = useState(null)
+  const { sessions, loading: sessionsLoading, error: sessionsError } = useSessions()
 
   const [selected, setSelected] = useState(null)
   const [detail, setDetail] = useState(null)
@@ -30,6 +30,7 @@ export default function App() {
   const [sendError, setSendError] = useState(null)
   const [view, setView] = useState('terminal') // 'terminal' | 'session' | 'stats'
   const [newChat, setNewChat] = useState(null) // { cwd } when composing a new chat
+  const [pendingOpenId, setPendingOpenId] = useState(null) // newChat session waiting to appear in the store
   const [activePtyId, setActivePtyId] = useState(null)
 
   const { settings, update } = useSettings()
@@ -64,27 +65,6 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  // One session-list fetch, shared by the sidebar and the stats view.
-  useEffect(() => {
-    let alive = true
-    window.flux.sessions
-      .list({ limit: 500 })
-      .then((res) => {
-        if (!alive) return
-        if (res.ok) setSessions(res.sessions)
-        else setSessionsError(res.error || 'failed to load sessions')
-        setSessionsLoading(false)
-      })
-      .catch((e) => {
-        if (!alive) return
-        setSessionsError(String(e))
-        setSessionsLoading(false)
-      })
-    return () => {
-      alive = false
-    }
-  }, [])
-
   // Live refresh of the open session + send-status updates.
   useEffect(() => {
     const offRefresh = window.flux.sessions.onRefresh(({ file, session }) => {
@@ -108,6 +88,13 @@ export default function App() {
     }
   }, [])
 
+  // Incremental updates for the open session: main sends only appended items.
+  useEffect(() => {
+    return window.flux.sessions.onAppend((payload) => {
+      if (payload.file === openFileRef.current) setDetail((prev) => mergeAppend(prev, payload))
+    })
+  }, [])
+
   const openSession = useCallback((s) => {
     setSelected(s)
     setView('session')
@@ -129,29 +116,26 @@ export default function App() {
       })
   }, [])
 
-  // A Mission Control card carries enough to open the session directly; if it's
-  // already in our list use that object, else synthesize the minimum openSession needs.
-  const openCard = useCallback(
-    (card) => {
-      const sess =
-        sessions.find((s) => s.sessionId === card.sessionId) ||
-        { sessionId: card.sessionId, file: card.file, title: card.title, cwd: card.cwd }
-      openSession(sess)
+  // Open by id from anywhere (cards, search hits, notifications); synthesizes
+  // from fallback fields when the store hasn't caught up yet.
+  const openById = useCallback(
+    (sessionId, fallback) => {
+      const sess = resolveSession(sessions, sessionId, fallback)
+      if (sess) openSession(sess)
     },
     [sessions, openSession]
   )
 
+  const openCard = useCallback((card) => openById(card.sessionId, card), [openById])
+
   const openSearchResult = useCallback(
     (sessionId, file, msgIdx) => {
-      const sess = sessions.find((s) => s.sessionId === sessionId)
-      if (!sess) return
-      // Open the session (reuses existing openSession logic), then after the
-      // detail loads we need scrollTarget to fire. We set it now with a unique
-      // key so the effect re-triggers even if the same idx is selected twice.
-      openSession(sess)
+      openById(sessionId, { file })
+      // setScrollTarget with a unique key so the effect re-triggers even if
+      // the same idx is selected twice.
       setScrollTarget({ idx: msgIdx, key: Date.now() })
     },
-    [sessions, openSession]
+    [openById]
   )
 
   const startNewChat = useCallback(() => {
@@ -176,29 +160,35 @@ export default function App() {
             setSendError(res.error || 'failed to start chat')
             return
           }
-          const open = (tries) => {
-            window.flux.sessions.list({ limit: 50 }).then((r) => {
-              const found = r.ok && r.sessions.find((s) => s.sessionId === res.sessionId)
-              if (found) {
-                setNewChat(null)
-                openSession(found)
-              } else if (tries > 0) {
-                setTimeout(() => open(tries - 1), 600)
-              } else {
-                setSendState('error')
-                setSendError('New session did not appear — it may still be starting. Try again.')
-              }
-            })
-          }
-          open(8)
+          setPendingOpenId(res.sessionId) // the live store will surface it
         })
         .catch((e) => {
           setSendState('error')
           setSendError(String(e))
         })
     },
-    [newChat, model, sendState, openSession]
+    [newChat, model, sendState]
   )
+
+  // Open the new chat as soon as the watcher-driven store sees its file.
+  useEffect(() => {
+    if (!pendingOpenId) return
+    const found = sessions.find((s) => s.sessionId === pendingOpenId)
+    if (found) {
+      setPendingOpenId(null)
+      setNewChat(null)
+      openSession(found)
+    }
+  }, [sessions, pendingOpenId, openSession])
+  useEffect(() => {
+    if (!pendingOpenId) return
+    const t = setTimeout(() => {
+      setPendingOpenId(null)
+      setSendState('error')
+      setSendError('New session did not appear — it may still be starting. Try again.')
+    }, 15000)
+    return () => clearTimeout(t)
+  }, [pendingOpenId])
 
   const sendMessage = useCallback(
     (message) => {
@@ -236,11 +226,8 @@ export default function App() {
 
   // A clicked notification asks us to open that session.
   useEffect(() => {
-    return window.flux.notify.onOpenSession(({ sessionId }) => {
-      const sess = sessions.find((s) => s.sessionId === sessionId)
-      if (sess) openSession(sess)
-    })
-  }, [sessions, openSession])
+    return window.flux.notify.onOpenSession(({ sessionId }) => openById(sessionId))
+  }, [openById])
 
   return (
     <div className="app-shell">
@@ -302,10 +289,7 @@ export default function App() {
             ptyId={activePtyId}
             onOpenSettings={() => setView('settings')}
           />
-          <NotificationBell onOpenSession={(id) => {
-            const sess = sessions.find((s) => s.sessionId === id)
-            if (sess) openSession(sess)
-          }} />
+          <NotificationBell onOpenSession={(id) => openById(id)} />
           <UsageBar />
         </div>
 

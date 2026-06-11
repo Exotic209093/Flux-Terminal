@@ -1,6 +1,7 @@
 import { createRoot } from 'react-dom/client'
 import App from './App.jsx'
 import { SettingsProvider } from './lib/settings-context'
+import { SessionsProvider } from './lib/sessions-context'
 import { applyTheme } from './lib/themes'
 import { resolveMotion, prefersReducedMotion, mergeLegacyAppearance } from './lib/appearance'
 import './index.css'
@@ -32,6 +33,8 @@ applyTheme(appearance.theme, { motion: resolveMotion(appearance.animations, pref
 const seeded = { ...initial, appearance, appearanceMigrated: true }
 createRoot(document.getElementById('root')).render(
   <SettingsProvider initial={seeded}>
-    <App />
+    <SessionsProvider>
+      <App />
+    </SessionsProvider>
   </SettingsProvider>
 )
