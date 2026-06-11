@@ -35,6 +35,16 @@ contextBridge.exposeInMainWorld('flux', {
       const listener = (_e, payload) => cb(payload)
       ipcRenderer.on('session:sendstatus', listener)
       return () => ipcRenderer.removeListener('session:sendstatus', listener)
+    },
+    onChanged: (cb) => {
+      const listener = (_e, payload) => cb(payload) // { sessions }
+      ipcRenderer.on('sessions:changed', listener)
+      return () => ipcRenderer.removeListener('sessions:changed', listener)
+    },
+    onAppend: (cb) => {
+      const listener = (_e, payload) => cb(payload) // { file, session, items }
+      ipcRenderer.on('session:append', listener)
+      return () => ipcRenderer.removeListener('session:append', listener)
     }
   },
   skills: {

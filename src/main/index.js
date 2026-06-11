@@ -18,6 +18,7 @@ const { Notifier } = require('./notify')
 const { PtyManager } = require('./ptymanager')
 const { registerAppScheme, serveAppProtocol } = require('./appprotocol')
 const { ClaudeRunner, resolveClaudeBin } = require('./resume')
+const { SessionIndex } = require('./sessionindex')
 
 let mainWindow = null
 let ptyManager = null
@@ -30,6 +31,7 @@ let promptStore = null
 let settingsStore = null
 let sessionMonitor = null
 let notifier = null
+let sessionIndex = null
 let openSessionId = null // which session the renderer currently has open (for not-suppression)
 
 // Must run before app is ready: make app:// a privileged scheme so the built
@@ -107,7 +109,9 @@ ipcMain.on('pty:kill', (_e, { id }) => {
 // ---- Sessions bridge ------------------------------------------------------
 ipcMain.handle('sessions:list', (_e, opts) => {
   try {
-    return { ok: true, sessions: listSessions(opts || {}) }
+    const limit = (opts && opts.limit) || 200
+    if (sessionIndex) return { ok: true, sessions: sessionIndex.list(limit) }
+    return { ok: true, sessions: listSessions(opts || {}) } // pre-ready fallback
   } catch (err) {
     return { ok: false, error: err.message, sessions: [] }
   }
@@ -116,7 +120,10 @@ ipcMain.handle('sessions:list', (_e, opts) => {
 ipcMain.handle('session:read', (_e, file) => {
   try {
     if (!isSessionPathAllowed(file)) return { ok: false, error: 'path not allowed' }
-    return { ok: true, session: parseSessionFile(file, { timeline: true }) }
+    // openSession watches first, then reads — serve the slot's parse instead
+    // of parsing the same file a second time.
+    const slot = sessionIndex ? sessionIndex.slotSnapshotFor(file) : null
+    return { ok: true, session: slot || parseSessionFile(file, { timeline: true }) }
   } catch (err) {
     return { ok: false, error: err.message }
   }
@@ -314,43 +321,13 @@ ipcMain.handle('image:stash', async (_e, args) => {
   }
 })
 
-// ---- Session watch (re-parse on change) -----------------------------------
-let watchFile = null
-let watchTimer = null
-let watchMtime = 0
-
+// ---- Session watch (served by the index's watch slot) ----------------------
 ipcMain.on('session:watch', (_e, file) => {
   if (!isSessionPathAllowed(file)) return
-  watchFile = file
-  try {
-    watchMtime = fs.statSync(file).mtimeMs
-  } catch {
-    watchMtime = 0
-  }
-  if (!watchTimer) {
-    watchTimer = setInterval(() => {
-      if (!watchFile) return
-      try {
-        const st = fs.statSync(watchFile)
-        if (st.mtimeMs !== watchMtime) {
-          watchMtime = st.mtimeMs
-          emit('session:refresh', {
-            file: watchFile,
-            session: parseSessionFile(watchFile, { timeline: true })
-          })
-        }
-      } catch {
-        /* file may be mid-write; retry next tick */
-      }
-    }, 1000)
-  }
+  if (sessionIndex) sessionIndex.subscribe(file)
 })
 ipcMain.on('session:unwatch', () => {
-  watchFile = null
-  if (watchTimer) {
-    clearInterval(watchTimer)
-    watchTimer = null
-  }
+  if (sessionIndex) sessionIndex.unsubscribe()
 })
 
 // ---- Interactive resume + new chat ----------------------------------------
@@ -403,7 +380,17 @@ app.whenReady().then(() => {
     onHistory: (entry) => emit('notify:history-add', entry)
   })
 
+  sessionIndex = new SessionIndex({
+    cachePath: path.join(app.getPath('userData'), 'session-index.json'),
+    onSessions: (sessions) => emit('sessions:changed', { sessions }),
+    onWatchRefresh: (payload) => emit('session:refresh', payload),
+    onWatchAppend: (payload) => emit('session:append', payload)
+  })
+  sessionIndex.start()
+
   sessionMonitor = new SessionMonitor({
+    listFiles: () => sessionIndex.recent(),
+    parseFile: (file) => sessionIndex.summary(file),
     getOpenSessionId: () => openSessionId,
     onAttention: (notice) => notifier.deliver(notice),
     onCards: (cards) => emit('missioncontrol:update', cards)
@@ -464,6 +451,9 @@ app.whenReady().then(() => {
     wc.once('did-finish-load', async () => {
       try {
         await wait(2500)
+        if (process.env.FLUX_SMOKE_DELAY) {
+          await wait(parseInt(process.env.FLUX_SMOKE_DELAY, 10) || 0)
+        }
         if (process.env.FLUX_SMOKE_VIEW === 'stats') {
           await wc.executeJavaScript("document.querySelector('.stats-btn')?.click()")
         } else if (process.env.FLUX_SMOKE_VIEW === 'session') {
@@ -517,7 +507,7 @@ app.on('window-all-closed', () => {
   if (liveTracker) liveTracker.dispose()
   if (usagePoller) usagePoller.stop()
   if (sessionMonitor) sessionMonitor.stop()
-  if (watchTimer) clearInterval(watchTimer)
+  if (sessionIndex) sessionIndex.dispose()
   if (claudeRunner) claudeRunner.killAll()
   if (process.platform !== 'darwin') app.quit()
 })
