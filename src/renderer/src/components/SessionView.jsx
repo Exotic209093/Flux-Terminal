@@ -88,6 +88,7 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
   const [attachment, setAttachment] = useState(null) // { file, name }
   const fileInputRef = useRef(null)
   const prevSession = useRef(null)
+  const consumedScrollKey = useRef(null)
   const totalAtSend = useRef(0)
 
   const timelineLen = detail && detail.timeline ? detail.timeline.length : 0
@@ -104,10 +105,12 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
     if (!detail || detail.ok === false) return
     if (sessionId !== prevSession.current) {
       prevSession.current = sessionId
-      autoFollow.current = true
+      const pendingJump = scrollTarget != null && consumedScrollKey.current !== scrollTarget.key
+      autoFollow.current = !pendingJump
       setShowJump(false)
-      // wait a frame for the DOM to paint the (possibly long) timeline
-      requestAnimationFrame(scrollToBottom)
+      // wait a frame for the DOM to paint the (possibly long) timeline —
+      // unless a search jump is about to scroll to its own target.
+      if (!pendingJump) requestAnimationFrame(scrollToBottom)
     } else if (autoFollow.current) {
       requestAnimationFrame(scrollToBottom)
     }
@@ -119,20 +122,26 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
   }, [totalCount, pending])
 
   // Scroll to a specific timeline index and briefly flash it.
-  // scrollTarget = { idx: number, key: any } — key change triggers the effect.
+  // scrollTarget = { idx, key } — runs when the target changes AND re-runs when
+  // detail finishes loading (jumping into a not-yet-open session used to bail
+  // silently on the loading early-return). consumedScrollKey stops live
+  // appends from re-scrolling an already-consumed target.
   useEffect(() => {
     if (scrollTarget == null || scrollTarget.idx == null) return
+    if (consumedScrollKey.current === scrollTarget.key) return
+    if (!detail || detail.ok === false) return // wait for load; deps re-run us
     const el = scrollRef.current
     if (!el) return
     const item = el.querySelectorAll('.tl-item')[scrollTarget.idx]
     if (!item) return
+    consumedScrollKey.current = scrollTarget.key
     autoFollow.current = false
     setShowJump(false)
     item.scrollIntoView({ block: 'center', behavior: 'smooth' })
     setFlashIdx(scrollTarget.idx)
     const timer = setTimeout(() => setFlashIdx(null), 900)
     return () => clearTimeout(timer)
-  }, [scrollTarget]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [scrollTarget, detail]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Slash commands are cwd-dependent (project commands), so refetch per session.
   useEffect(() => {

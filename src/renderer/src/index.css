@@ -1529,6 +1529,22 @@ body,
   font-size: 12.5px;
 }
 .search-hit:hover { background: var(--bg-hover); }
+.search-hit.selected {
+  background: var(--bg-hover);
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+.search-overlay-ops {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 14px 6px;
+  font-size: 11px;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--border);
+}
+.search-overlay-ops-kbd {
+  opacity: 0.8;
+}
 .search-hit-role {
   flex: 0 0 48px;
   font-size: 10px;
