@@ -5,6 +5,7 @@ import SessionView from './components/SessionView'
 import StatsView from './components/StatsView'
 import SkillsView from './components/SkillsView'
 import MissionControl from './components/MissionControl'
+import SettingsPage from './components/SettingsPage'
 import SearchOverlay from './components/SearchOverlay'
 import UsageBar from './components/UsageBar'
 import ControlBar from './components/ControlBar'
@@ -54,6 +55,9 @@ export default function App() {
       } else if (e.ctrlKey && !e.shiftKey && (e.key === 'm' || e.key === 'M')) {
         e.preventDefault()
         setView((v) => (v === 'mission' ? 'terminal' : 'mission'))
+      } else if (e.ctrlKey && e.key === ',') {
+        e.preventDefault()
+        setView((v) => (v === 'settings' ? 'terminal' : 'settings'))
       }
     }
     window.addEventListener('keydown', onKey)
@@ -339,6 +343,11 @@ export default function App() {
         {view === 'mission' && (
           <div className="pane-slot">
             <MissionControl onOpenCard={openCard} />
+          </div>
+        )}
+        {view === 'settings' && (
+          <div className="pane-slot">
+            <SettingsPage />
           </div>
         )}
       </main>
