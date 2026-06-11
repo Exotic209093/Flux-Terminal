@@ -36,7 +36,8 @@ export default defineConfig({
           appprotocol: resolve('src/main/appprotocol.js'),
           resume: resolve('src/main/resume.js'),
           tailer: resolve('src/main/tailer.js'),
-          sessionindex: resolve('src/main/sessionindex.js')
+          sessionindex: resolve('src/main/sessionindex.js'),
+          searchindex: resolve('src/main/searchindex.js')
         },
         output: {
           entryFileNames: '[name].js'
