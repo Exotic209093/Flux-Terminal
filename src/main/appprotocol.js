@@ -23,6 +23,31 @@ const MIME = {
   '.map': 'application/json'
 }
 
+// Transcript-derived content is untrusted (sessions fetch the web), so the
+// renderer document gets a tight CSP. style-src 'unsafe-inline' is required:
+// React style props and the inline theme vars on <html> are style attributes.
+// img-src data: covers timeline images (base64 from transcripts).
+// Dev (Vite server) is unaffected — this header is only served over app://.
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data:",
+  "font-src 'self'",
+  "connect-src 'self'",
+  "object-src 'none'",
+  "base-uri 'none'",
+  "form-action 'none'",
+  "frame-ancestors 'none'"
+].join('; ')
+
+/** Response headers for a renderer asset by extension. Pure — unit-tested. */
+function headersFor(ext) {
+  const headers = { 'content-type': MIME[ext] || 'application/octet-stream' }
+  if (ext === '.html') headers['content-security-policy'] = CSP
+  return headers
+}
+
 /**
  * Map an app:// URL pathname to an absolute file under rendererDir, or null if
  * it escapes the dir (path-traversal guard). Pure — unit-tested.
@@ -57,11 +82,11 @@ function serveAppProtocol(protocol, rendererDir) {
     try {
       const data = await fs.promises.readFile(filePath)
       const ext = path.extname(filePath).toLowerCase()
-      return new Response(data, { headers: { 'content-type': MIME[ext] || 'application/octet-stream' } })
+      return new Response(data, { headers: headersFor(ext) })
     } catch {
       return new Response('not found', { status: 404 })
     }
   })
 }
 
-module.exports = { resolveRendererPath, registerAppScheme, serveAppProtocol, MIME }
+module.exports = { resolveRendererPath, registerAppScheme, serveAppProtocol, headersFor, CSP, MIME }

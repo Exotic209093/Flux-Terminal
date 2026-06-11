@@ -52,7 +52,9 @@ function createWindow() {
     ...(windowIcon ? { icon: windowIcon } : {}),
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
-      sandbox: false,
+      // Preload only uses contextBridge + ipcRenderer (including one sendSync),
+      // both of which are fully available in a sandboxed preload.
+      sandbox: true,
       contextIsolation: true,
       nodeIntegration: false,
       // Keep the terminal rendering PTY output even when the window is unfocused.
@@ -65,6 +67,16 @@ function createWindow() {
   mainWindow.__fluxDot = nativeImage.createFromDataURL(
     'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAdklEQVR4nGP43L2CAQ0nfe5eseNz94q3n7tX/IfSO6Di6GoZkDkGn7tXnIRqwoVPQtVhGGCAZCMh/BbZEJgBhGzG5hK4AUkkaobhJJgBO8g0YAfMAGL9ji0swAaQoxmGqeMCisOA4ligOB1QJSVSnBeokhvJwgBc3NY+xPo8owAAAABJRU5ErkJggg=='
   )
+
+  // The renderer displays transcript-derived content (whatever a session
+  // touched, including web fetches) — treat it as untrusted. No popups, no
+  // navigating the window away from the app bundle / dev server.
+  mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+  mainWindow.webContents.on('will-navigate', (e, url) => {
+    const dev = process.env['ELECTRON_RENDERER_URL']
+    const allowed = url.startsWith('app://') || (dev && url.startsWith(dev))
+    if (!allowed) e.preventDefault()
+  })
 
   // electron-vite sets ELECTRON_RENDERER_URL in dev (Vite dev server w/ HMR);
   // in production we load the built HTML from disk.
