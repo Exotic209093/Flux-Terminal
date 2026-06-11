@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 
 export default function AboutSection() {
   const [version, setVersion] = useState('')
-  useEffect(() => { window.flux.app.version().then(setVersion) }, [])
+  useEffect(() => { window.flux.app.version().then(setVersion).catch(() => setVersion('unknown')) }, [])
   return (
     <div>
       <div className="set-h">About</div>
