@@ -102,7 +102,16 @@ function findPluginSkills() {
 }
 
 function bundledSkillsDir(appPath) {
-  return path.join(appPath, 'skills')
+  // Dev: repo-root skills/ next to package.json. Packaged: electron-builder
+  // ships skills/ as an extraResource (it is NOT in the asar — the files list
+  // only packs out/**), so resolve under process.resourcesPath.
+  const inApp = path.join(appPath, 'skills')
+  if (fs.existsSync(inApp)) return inApp
+  if (process.resourcesPath) {
+    const inResources = path.join(process.resourcesPath, 'skills')
+    if (fs.existsSync(inResources)) return inResources
+  }
+  return inApp
 }
 
 function listSkills(appPath) {
@@ -133,4 +142,4 @@ function installBundledSkill(appPath, name) {
   }
 }
 
-module.exports = { listSkills, installBundledSkill, userSkillsDir }
+module.exports = { listSkills, installBundledSkill, userSkillsDir, bundledSkillsDir }

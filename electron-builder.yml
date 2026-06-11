@@ -6,6 +6,11 @@ directories:
 files:
   - out/**/*
   - package.json
+# Bundled starter skills live OUTSIDE the asar so fs.cpSync (skill install)
+# copies real files; skills.js falls back to process.resourcesPath/skills.
+extraResources:
+  - from: skills
+    to: skills
 asar: true
 # node-pty ships prebuilt binaries (prebuilds/win32-x64/*.node) that already work in dev.
 # Skip electron-builder's @electron/rebuild step: node-gyp cannot rebuild node-pty's winpty
