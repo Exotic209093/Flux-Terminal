@@ -31,4 +31,6 @@ test('installBundledSkill rejects traversal names', () => {
   assert.strictEqual(installBundledSkill('C:\\app', '..\\..\\evil').ok, false)
   assert.strictEqual(installBundledSkill('C:\\app', 'a/b').ok, false)
   assert.strictEqual(installBundledSkill('C:\\app', '').ok, false)
+  assert.strictEqual(installBundledSkill('C:\\app', '..').ok, false)
+  assert.strictEqual(installBundledSkill('C:\\app', '.').ok, false)
 })

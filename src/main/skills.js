@@ -127,7 +127,7 @@ function listSkills(appPath) {
 
 /** Install a bundled skill by copying its folder into ~/.claude/skills. */
 function installBundledSkill(appPath, name) {
-  if (typeof name !== 'string' || !name || path.basename(name) !== name) {
+  if (typeof name !== 'string' || !name || name === '.' || name === '..' || path.basename(name) !== name) {
     return { ok: false, error: 'invalid skill name' }
   }
   const src = path.join(bundledSkillsDir(appPath), name)
