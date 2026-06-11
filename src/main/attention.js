@@ -13,6 +13,8 @@ function createAttentionState() {
     lastUserCount: 0,
     lastAssistantCount: 0,
     lastErrorCount: 0,
+    lastTurnDurationCount: 0,
+    tdMode: false, // transcript writes turn_duration records → exact close signal
     turnOpen: false,
     turnOpenedAt: 0,
     lastMtime: 0,
@@ -29,6 +31,7 @@ function createAttentionState() {
 function observe(state, obs) {
   const events = []
   const ts = obs.ts
+  const tdCount = obs.turnDurationCount || 0
 
   // First observation = baseline only. Never fire on pre-existing history.
   if (!state.started) {
@@ -36,6 +39,8 @@ function observe(state, obs) {
     state.lastUserCount = obs.userCount
     state.lastAssistantCount = obs.assistantCount
     state.lastErrorCount = obs.errorCount
+    state.lastTurnDurationCount = tdCount
+    if (tdCount > 0) state.tdMode = true
     state.lastMtime = obs.mtimeMs
     state.lastWriteTs = ts
     return events
@@ -62,10 +67,27 @@ function observe(state, obs) {
     state.turnOpen = false
   }
 
+  // Exact close: the CLI wrote a turn_duration record with the real duration.
+  // Once any td record is seen, assistant records (which arrive mid-turn,
+  // between tool calls) stop closing turns — only this branch does.
+  if (tdCount > state.lastTurnDurationCount) {
+    state.tdMode = true
+    if (state.turnOpen) {
+      const durationMs =
+        typeof obs.lastTurnDurationMs === 'number' && obs.lastTurnDurationMs > 0
+          ? obs.lastTurnDurationMs
+          : ts - state.turnOpenedAt
+      if (durationMs >= MIN_TURN_MS) events.push({ type: 'turn:finished', ts, durationMs })
+      state.turnOpen = false
+    }
+  }
+
   // New assistant message closing an open turn → turn:finished if long enough.
   // NB: this runs AFTER the error branch, which may have closed the turn — so an
   // error+assistant in the same observation can't double-fire turn:finished.
-  if (obs.assistantCount > state.lastAssistantCount && state.turnOpen) {
+  // In td mode, the turn_duration branch above supersedes this: assistant records
+  // arrive mid-turn (between tool calls) and must not prematurely close the turn.
+  if (!state.tdMode && obs.assistantCount > state.lastAssistantCount && state.turnOpen) {
     const durationMs = ts - state.turnOpenedAt
     if (durationMs >= MIN_TURN_MS) events.push({ type: 'turn:finished', ts, durationMs })
     state.turnOpen = false
@@ -80,6 +102,7 @@ function observe(state, obs) {
   state.lastUserCount = obs.userCount
   state.lastAssistantCount = obs.assistantCount
   state.lastErrorCount = obs.errorCount
+  state.lastTurnDurationCount = tdCount
   return events
 }
 

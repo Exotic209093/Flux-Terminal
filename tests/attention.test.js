@@ -89,3 +89,50 @@ test('usage:threshold fires once per window per reset cycle', () => {
 test('observeUsage tolerates null windows', () => {
   assert.deepStrictEqual(observeUsage(createUsageState(), null, 1), [])
 })
+
+// ---- turn_duration ("td") mode: exact closes from system records --------------
+function tdObs(ts, mtimeMs, u, a, tdCount, tdMs, e = 0) {
+  return { ts, mtimeMs, userCount: u, assistantCount: a, errorCount: e, turnDurationCount: tdCount, lastTurnDurationMs: tdMs }
+}
+
+test('td mode: mid-turn assistant records do not close the turn; the turn_duration record does, with the exact duration', () => {
+  const s = createAttentionState()
+  observe(s, tdObs(0, 0, 5, 5, 3, 0)) // baseline on a transcript that writes turn_duration
+  observe(s, tdObs(1000, 1000, 6, 5, 3, 0)) // new prompt → turn opens
+  const mid = observe(s, tdObs(5000, 5000, 6, 6, 3, 0)) // first reply lands mid-turn
+  assert.deepStrictEqual(mid, [])
+  assert.strictEqual(s.turnOpen, true)
+  const done = observe(s, tdObs(9000, 9000, 6, 8, 4, 260620)) // CLI wrote turn_duration
+  assert.strictEqual(done.length, 1)
+  assert.strictEqual(done[0].type, 'turn:finished')
+  assert.strictEqual(done[0].durationMs, 260620)
+  assert.strictEqual(s.turnOpen, false)
+})
+
+test('td mode: a short exact duration does not notify', () => {
+  const s = createAttentionState()
+  observe(s, tdObs(0, 0, 0, 0, 1, 0))
+  observe(s, tdObs(1000, 1000, 1, 0, 1, 0))
+  const done = observe(s, tdObs(9000, 9000, 1, 1, 2, 5000)) // 5s < MIN_TURN_MS
+  assert.deepStrictEqual(done, [])
+  assert.strictEqual(s.turnOpen, false)
+})
+
+test('td mode: blocked still fires after assistant records stream mid-turn', () => {
+  const s = createAttentionState()
+  observe(s, tdObs(0, 0, 0, 0, 1, 0))
+  observe(s, tdObs(1000, 1000, 1, 0, 1, 0)) // turn opens
+  observe(s, tdObs(2000, 2000, 1, 1, 1, 0)) // reply streams (write at ts=2000), turn stays open
+  const ev = observe(s, tdObs(2000 + BLOCKED_MS + 1, 2000, 1, 1, 1, 0)) // silence past BLOCKED_MS
+  assert.strictEqual(ev.length, 1)
+  assert.strictEqual(ev[0].type, 'blocked')
+})
+
+test('legacy transcripts (no turn_duration anywhere) keep the assistant-close behavior', () => {
+  const s = createAttentionState()
+  observe(s, obs(0, 0, 0, 0))
+  observe(s, obs(1000, 1000, 1, 0))
+  const ev = observe(s, obs(1000 + MIN_TURN_MS + 1, 5000, 1, 1))
+  assert.strictEqual(ev.length, 1)
+  assert.strictEqual(ev[0].type, 'turn:finished')
+})

@@ -112,6 +112,8 @@ class SessionMonitor {
           rec.lastRole = lastRoleOf(parsed)
           rec.lastActivityMs = meta.mtimeMs
           rec._parsedCounts = { user: parsed.counts.user, assistant: parsed.counts.assistant }
+          rec._turnDurationCount = parsed.turnDurationCount || 0
+          rec._lastTurnDurationMs = parsed.lastTurnDurationMs || 0
           rec._errorCount = parsed.errorCount || 0
         }
         rec.subagents = safe(() => this.countSub(meta.file), { running: 0, total: 0 })
@@ -126,7 +128,9 @@ class SessionMonitor {
           mtimeMs: meta.mtimeMs,
           userCount: rec._parsedCounts.user,
           assistantCount: rec._parsedCounts.assistant,
-          errorCount: rec._errorCount || 0
+          errorCount: rec._errorCount || 0,
+          turnDurationCount: rec._turnDurationCount || 0,
+          lastTurnDurationMs: rec._lastTurnDurationMs || 0
         })
         for (const event of events) {
           if (event.type === 'turn:error') { rec.hasError = true; rec._errorAt = now }
