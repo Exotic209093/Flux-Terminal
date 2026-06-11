@@ -19,6 +19,7 @@ const { PtyManager } = require('./ptymanager')
 const { registerAppScheme, serveAppProtocol } = require('./appprotocol')
 const { ClaudeRunner, resolveClaudeBin } = require('./resume')
 const { SessionIndex } = require('./sessionindex')
+const { SearchIndex } = require('./searchindex')
 
 let mainWindow = null
 let ptyManager = null
@@ -32,6 +33,7 @@ let settingsStore = null
 let sessionMonitor = null
 let notifier = null
 let sessionIndex = null
+let searchIndex = null
 let openSessionId = null // which session the renderer currently has open (for not-suppression)
 
 // Must run before app is ready: make app:// a privileged scheme so the built
@@ -170,6 +172,10 @@ ipcMain.handle('subagent:read', (_e, { file, agentId }) => {
 // ---- Cross-session search ---------------------------------------------------
 ipcMain.handle('search:query', (_e, { query }) => {
   try {
+    if (searchIndex && searchIndex.available) {
+      return { ok: true, hits: searchIndex.query(query) }
+    }
+    // Fallback: node:sqlite unavailable — the legacy synchronous scan.
     const { listSessionFiles } = require('./sessions')
     const sessions = listSessionFiles()
     const hits = search(query, sessions, {
@@ -384,9 +390,20 @@ app.whenReady().then(() => {
     cachePath: path.join(app.getPath('userData'), 'session-index.json'),
     onSessions: (sessions) => emit('sessions:changed', { sessions }),
     onWatchRefresh: (payload) => emit('session:refresh', payload),
-    onWatchAppend: (payload) => emit('session:append', payload)
+    onWatchAppend: (payload) => emit('session:append', payload),
+    onFileChanged: (file, info) => {
+      if (!searchIndex) return
+      if (info && info.deleted) searchIndex.remove(file)
+      else searchIndex.enqueue(file)
+    }
   })
   sessionIndex.start()
+
+  searchIndex = new SearchIndex({
+    dbPath: path.join(app.getPath('userData'), 'search-index.db'),
+    onProgress: (p) => emit('search:progress', p)
+  })
+  searchIndex.start()
 
   sessionMonitor = new SessionMonitor({
     listFiles: () => sessionIndex.recent(),
@@ -508,6 +525,7 @@ app.on('window-all-closed', () => {
   if (usagePoller) usagePoller.stop()
   if (sessionMonitor) sessionMonitor.stop()
   if (sessionIndex) sessionIndex.dispose()
+  if (searchIndex) searchIndex.dispose()
   if (claudeRunner) claudeRunner.killAll()
   if (process.platform !== 'darwin') app.quit()
 })
