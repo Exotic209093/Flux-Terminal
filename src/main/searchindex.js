@@ -27,6 +27,9 @@ function parseQuery(q) {
       const val = m[2]
       if (key === 'error') filters.isError = /^(true|1|yes)$/i.test(val)
       else if (key === 'session') filters.sessionId = val
+      // stored kinds are user/text/thinking/tool_use/tool_result; people will
+      // type role:assistant and mean the text items
+      else if (key === 'role' && val.toLowerCase() === 'assistant') filters.role = 'text'
       else filters[key] = val
     } else {
       terms.push(tok)
@@ -286,8 +289,11 @@ class SearchIndex {
       this.remove(file) // file vanished
       return
     }
+    let purge = false
     if (delta.reset) {
-      this.db.prepare('DELETE FROM records WHERE file = ?').run(file)
+      // defer the purge into the transaction below — a failed re-insert must
+      // not leave the file unindexed with a stale files row
+      purge = true
       itemCount = 0
       try {
         delta = tail.readDelta()
@@ -305,6 +311,7 @@ class SearchIndex {
     const title = model.title || model.lastUserPrompt || null
     this.db.exec('BEGIN')
     try {
+      if (purge) this.db.prepare('DELETE FROM records WHERE file = ?').run(file)
       const ins = this.db.prepare(
         'INSERT INTO records (file, sessionId, msgIdx, ts, role, tool, isError, text) VALUES (?,?,?,?,?,?,?,?)'
       )
@@ -334,7 +341,7 @@ class SearchIndex {
     const params = []
     let sql
     if (terms.length) {
-      sql = `SELECT r.sessionId, r.msgIdx, r.role, r.ts, f.project, f.title,
+      sql = `SELECT r.sessionId, r.file, r.msgIdx, r.role, r.ts, f.project, f.title,
                snippet(records_fts, 0, char(1), char(2), '…', 40) AS marked
              FROM records_fts
              JOIN records r ON r.id = records_fts.rowid
@@ -342,7 +349,7 @@ class SearchIndex {
       where.push('records_fts MATCH ?')
       params.push(ftsMatchFor(terms))
     } else {
-      sql = `SELECT r.sessionId, r.msgIdx, r.role, r.ts, r.text AS marked, f.project, f.title
+      sql = `SELECT r.sessionId, r.file, r.msgIdx, r.role, r.ts, r.text AS marked, f.project, f.title
              FROM records r JOIN files f ON f.file = r.file`
     }
     if (filters.role) {
@@ -382,6 +389,9 @@ class SearchIndex {
       const m = snippetToOffsets(r.marked || '')
       return {
         sessionId: r.sessionId,
+        // the index spans EVERY transcript; hits beyond the renderer's
+        // 500-session store window need the path to open at all
+        file: r.file,
         project: r.project || '',
         title: r.title || null,
         msgIdx: r.msgIdx,

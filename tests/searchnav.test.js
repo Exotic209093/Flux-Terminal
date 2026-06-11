@@ -7,7 +7,7 @@ test('groupHits groups by session preserving order and returns a flat list align
   const sessions = [{ sessionId: 'a', file: 'F:\\a.jsonl', title: 'Session A' }]
   const hits = [
     { sessionId: 'a', msgIdx: 1, title: null, project: 'P' },
-    { sessionId: 'b', msgIdx: 5, title: 'B title', project: 'Q' },
+    { sessionId: 'b', msgIdx: 5, title: 'B title', project: 'Q', file: 'F:\\b.jsonl' },
     { sessionId: 'a', msgIdx: 9, title: null, project: 'P' }
   ]
   const { grouped, flat } = groupHits(hits, sessions)
@@ -16,7 +16,8 @@ test('groupHits groups by session preserving order and returns a flat list align
   assert.strictEqual(grouped[0].title, 'Session A') // resolved from the live list
   assert.strictEqual(grouped[0].file, 'F:\\a.jsonl')
   assert.strictEqual(grouped[0].hits.length, 2)
-  assert.strictEqual(grouped[1].file, null) // unknown session — openById synthesis handles it upstream? no file → falls back
+  // session b is outside the store window — the hit's own file path wins
+  assert.strictEqual(grouped[1].file, 'F:\\b.jsonl')
   // flat order matches render order: group 0 hits, then group 1 hits
   assert.deepStrictEqual(flat.map((f) => [f.sessionId, f.hit.msgIdx]), [['a', 1], ['a', 9], ['b', 5]])
 })

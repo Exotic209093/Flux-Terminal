@@ -17,6 +17,7 @@ test('parseQuery edge shapes', () => {
   assert.deepStrictEqual(parseQuery('tool:'), { terms: ['tool:'], filters: {} }) // empty value = plain term
   assert.deepStrictEqual(parseQuery('error:false').filters, { isError: false })
   assert.deepStrictEqual(parseQuery('session:abc-123').filters, { sessionId: 'abc-123' })
+  assert.deepStrictEqual(parseQuery('role:assistant').filters, { role: 'text' }) // alias for the stored kind
 })
 
 test('ftsMatchFor quotes terms (FTS syntax injection dies) and prefix-stars them', () => {
@@ -157,7 +158,8 @@ test('reconcile indexes every file once and FTS queries hit with the legacy DTO'
   assert.strictEqual(h.role, 'user')
   assert.ok(typeof h.snippet === 'string' && h.snippet.includes('quick'))
   assert.strictEqual(h.snippet.slice(h.matchStart, h.matchEnd).toLowerCase(), 'quick')
-  assert.deepStrictEqual(Object.keys(h).sort(), ['matchEnd', 'matchStart', 'msgIdx', 'project', 'role', 'sessionId', 'snippet', 'title', 'ts'])
+  assert.deepStrictEqual(Object.keys(h).sort(), ['file', 'matchEnd', 'matchStart', 'msgIdx', 'project', 'role', 'sessionId', 'snippet', 'title', 'ts'])
+  assert.strictEqual(h.file, 'P:\\proj\\s1.jsonl') // hits open even when the session is outside the renderer's store window
 })
 
 test('incremental: an appended delta indexes from the persisted offset with correct msgIdx', () => {
