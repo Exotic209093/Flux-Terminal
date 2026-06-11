@@ -34,7 +34,8 @@ export default defineConfig({
           notify: resolve('src/main/notify.js'),
           missioncontrol: resolve('src/main/missioncontrol.js'),
           appprotocol: resolve('src/main/appprotocol.js'),
-          resume: resolve('src/main/resume.js')
+          resume: resolve('src/main/resume.js'),
+          tailer: resolve('src/main/tailer.js')
         },
         output: {
           entryFileNames: '[name].js'

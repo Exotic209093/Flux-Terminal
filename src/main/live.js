@@ -1,7 +1,7 @@
-const fs = require('fs')
-const { parseLine, freshModel, applyEvent, finalize } = require('./parser')
+const { freshModel, applyEvent, finalize } = require('./parser')
 const { findSessionFileById } = require('./sessions')
 const { countSubagents } = require('./subagents')
+const { createTail } = require('./tailer')
 
 // LiveTracker tails a Claude Code session JSONL as it is being written and emits
 // periodic snapshots (token usage, cost inputs, tools, recent events).
@@ -27,7 +27,7 @@ class LiveTracker {
   _reset() {
     this.sessionId = null
     this.file = null
-    this.offset = 0
+    this.tail = null
     this.model = null
     this.timeline = null // bounded ring of recent items
   }
@@ -67,39 +67,20 @@ class LiveTracker {
           this._emit('starting')
           return
         }
+        this.tail = createTail(this.file)
       }
-      const stat = fs.statSync(this.file)
-      if (stat.size < this.offset) {
-        // file truncated/rotated — restart accumulation
-        this.offset = 0
+      let delta = this.tail.readDelta()
+      if (delta.reset) {
+        // file truncated/rotated — restart accumulation and re-read from 0
         this.model = freshModel(null)
         this.timeline = []
+        delta = this.tail.readDelta()
       }
-      if (stat.size > this.offset) {
-        const len = stat.size - this.offset
-        const buf = Buffer.alloc(len)
-        const fd = fs.openSync(this.file, 'r')
-        try {
-          fs.readSync(fd, buf, 0, len, this.offset)
-        } finally {
-          fs.closeSync(fd)
-        }
-        const chunk = buf.toString('utf8')
-        const lastNl = chunk.lastIndexOf('\n')
-        if (lastNl !== -1) {
-          const complete = chunk.slice(0, lastNl)
-          this.offset += Buffer.byteLength(chunk.slice(0, lastNl + 1), 'utf8')
-          for (const line of complete.split('\n')) {
-            if (!line.trim()) continue
-            const o = parseLine(line)
-            if (o) applyEvent(o, this.model, this.timeline)
-          }
-          if (this.timeline.length > MAX_RECENT) {
-            this.timeline = this.timeline.slice(-MAX_RECENT)
-          }
-        }
+      for (const o of delta.objects) applyEvent(o, this.model, this.timeline)
+      if (this.timeline.length > MAX_RECENT) {
+        this.timeline = this.timeline.slice(-MAX_RECENT)
       }
-      this._emit('live', stat.mtimeMs)
+      this._emit('live', delta.mtimeMs)
     } catch (err) {
       // File vanished or transient read error — report but keep trying.
       this._emit('starting')
