@@ -95,3 +95,13 @@ test('countSubagents: total via readdir, running via mtime when live; no parse; 
   // missing dir
   assert.deepStrictEqual(countSubagents('/no/such/sess.jsonl'), { running: 0, total: 0 })
 })
+
+test('readSubagent rejects traversal agent ids before touching the filesystem', () => {
+  const { file } = makeSession()
+  const bad = readSubagent(file, 'x/../../../../tmp/evil')
+  assert.strictEqual(bad.ok, false)
+  assert.match(bad.error, /invalid agent id/)
+  assert.strictEqual(readSubagent(file, 'x\\..\\evil').ok, false)
+  assert.strictEqual(readSubagent(file, '').ok, false)
+  assert.strictEqual(readSubagent(file, 42).ok, false)
+})

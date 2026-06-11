@@ -81,6 +81,12 @@ function listSubagents(sessionFile, opts = {}) {
 
 /** Full parse (incl. timeline) of one subagent, for drill-in. */
 function readSubagent(sessionFile, agentId) {
+  // agentId is renderer-supplied and joined into a path: a traversal id
+  // ('x/../../evil') would escape the session's subagents dir and the
+  // ~/.claude boundary the IPC guard enforces on sessionFile.
+  if (typeof agentId !== 'string' || !agentId || path.basename(agentId) !== agentId) {
+    return { ok: false, error: 'invalid agent id' }
+  }
   const file = path.join(subagentsDirFor(sessionFile), `agent-${agentId}.jsonl`)
   return parseSessionFile(file, { timeline: true })
 }
