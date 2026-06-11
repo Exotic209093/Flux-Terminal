@@ -152,6 +152,14 @@ scripts/
       window-open/navigation hardening, bundled skills actually packaged,
       transcript reads boundary-checked to `~/.claude`.
 
+- [x] **Session-index substrate:** one recursive `fs.watch` + 15s reconciliation
+      sweep feeding an incrementally-updated, persisted session index — the
+      sidebar updates live (sessions started anywhere appear without restart),
+      `sessions:list` serves from cache (warm boot parses nothing), the open
+      session streams only appended timeline items, and the monitor stops
+      re-parsing transcripts. Notification/search clicks on brand-new sessions
+      now open them.
+
 ### Possible next steps
 - Timeline scrubber / playback controls; collapse long thinking blocks
 - Syntax-highlight code in the replay
