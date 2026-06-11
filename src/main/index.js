@@ -486,6 +486,21 @@ app.whenReady().then(() => {
           )
         } else if (process.env.FLUX_SMOKE_VIEW === 'settings') {
           await wc.executeJavaScript("document.querySelector('.settings-gear')?.click()")
+        } else if (process.env.FLUX_SMOKE_VIEW === 'search') {
+          await wc.executeJavaScript(
+            "window.dispatchEvent(new KeyboardEvent('keydown', { key: 'F', ctrlKey: true, shiftKey: true, bubbles: true }))"
+          )
+          if (process.env.FLUX_SMOKE_QUERY) {
+            await wait(800)
+            await wc.executeJavaScript(`(() => {
+              const input = document.querySelector('.search-overlay-input')
+              if (!input) return
+              const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set
+              setter.call(input, ${JSON.stringify(process.env.FLUX_SMOKE_QUERY)})
+              input.dispatchEvent(new Event('input', { bubbles: true }))
+            })()`)
+            await wait(2000)
+          }
         }
         if (process.env.FLUX_SMOKE_THEME) {
           const t = JSON.stringify(process.env.FLUX_SMOKE_THEME)

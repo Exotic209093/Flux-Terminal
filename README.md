@@ -160,6 +160,13 @@ scripts/
       re-parsing transcripts. Notification/search clicks on brand-new sessions
       now open them.
 
+- [x] **FTS search:** a persistent SQLite FTS5 index (node:sqlite — no native
+      modules) built incrementally off the session index, with `role:` `tool:`
+      `file:` `project:` `error:true` operators, millisecond queries, and a
+      keyboard-first overlay (↑↓/Enter/Esc, restored results). Replaces the
+      synchronous corpus scan that froze live terminals; jumping to a hit in an
+      unopened session now actually scrolls to it.
+
 ### Possible next steps
 - Timeline scrubber / playback controls; collapse long thinking blocks
 - Syntax-highlight code in the replay
