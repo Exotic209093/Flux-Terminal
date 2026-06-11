@@ -122,7 +122,14 @@ END;
 function defaultOpenDb(dbPath) {
   const { DatabaseSync } = require('node:sqlite')
   const db = new DatabaseSync(dbPath || ':memory:')
-  db.exec('PRAGMA journal_mode=WAL')
+  try {
+    db.exec('PRAGMA journal_mode=WAL')
+  } catch (err) {
+    // corrupt file: the open itself is lazy and succeeds — close the handle
+    // so recovery can actually unlink the file (Windows EBUSY otherwise)
+    try { db.close() } catch { /* ignore */ }
+    throw err
+  }
   return db
 }
 
@@ -170,20 +177,24 @@ class SearchIndex {
   }
 
   _openOrRecreate() {
+    let db = null
     try {
-      const db = this.openDb(this.dbPath)
+      db = this.openDb(this.dbPath)
       db.exec(SCHEMA)
       return db
     } catch {
-      // corrupt DB file — delete and start over (one rebuild beats a dead search)
+      // corrupt DB file — close any half-open handle, delete all three sqlite
+      // files together (db + -wal + -shm), and start over. One rebuild beats
+      // a dead search.
+      if (db) {
+        try { db.close() } catch { /* ignore */ }
+      }
       if (this.dbPath) {
-        try {
-          this.fsImpl.unlinkSync(this.dbPath)
-        } catch {
-          /* ignore */
+        for (const suffix of ['', '-wal', '-shm']) {
+          try { this.fsImpl.unlinkSync(this.dbPath + suffix) } catch { /* ignore */ }
         }
       }
-      const db = this.openDb(this.dbPath)
+      db = this.openDb(this.dbPath)
       db.exec(SCHEMA)
       return db
     }

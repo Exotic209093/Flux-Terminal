@@ -260,6 +260,40 @@ test('openDb that throws once recovers; twice leaves the index unavailable with 
   assert.deepStrictEqual(dead.si.query('hello'), [])
 })
 
+test('a genuinely corrupt DB file on disk is deleted and rebuilt (default openDb, Windows handle-close path)', () => {
+  const fsReal = require('fs')
+  const os = require('os')
+  const path = require('path')
+  const dir = fsReal.mkdtempSync(path.join(os.tmpdir(), 'flux-fts-corrupt-'))
+  const dbPath = path.join(dir, 'search-index.db')
+  fsReal.writeFileSync(dbPath, 'this is not a sqlite database, not even close')
+  const world = searchWorld()
+  world.addFile('s1', [lineFor('phoenix from ashes')], 500)
+  const si = new SearchIndex({
+    dbPath, // default openDb — the real node:sqlite path
+    listFiles: () => [...world.files.values()].map((f) => ({ ...f.meta })),
+    makeTail: (file, startOffset) => {
+      let consumed = startOffset
+      return {
+        get offset() { return consumed },
+        readDelta() {
+          const fw = world.files.get(file)
+          const objects = fw.lines.slice(consumed)
+          consumed = fw.lines.length
+          return { reset: false, objects: objects.slice(), parseErrors: 0, size: fw.meta.size, mtimeMs: fw.meta.mtimeMs }
+        }
+      }
+    },
+    enqueueTick: (fn) => world.ticks.push(fn),
+    onProgress: () => {}
+  })
+  si.start()
+  world.drain()
+  assert.strictEqual(si.available, true)
+  assert.strictEqual(si.query('phoenix').length, 1)
+  si.dispose()
+})
+
 test('progress fires during a multi-file build', () => {
   const world = searchWorld()
   for (let i = 0; i < 6; i++) world.addFile('s' + i, [lineFor('content ' + i)], 100 + i)
