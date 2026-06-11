@@ -56,21 +56,26 @@ function observe(state, obs) {
   }
 
   // Exact close: the CLI wrote a turn_duration record with the real duration.
-  // Once any td record is seen, assistant records (which arrive mid-turn,
-  // between tool calls) stop closing turns — only this branch does.
-  // Runs before the user-open branch: with a queued prompt, the previous
-  // turn's td record and the next prompt arrive in the same poll — close the
-  // old turn first so the new one isn't killed at birth. Poll-granularity
-  // tradeoff: a complete sub-3s turn whose user+td land in one tick leaves
-  // the turn open until the next td record (rare).
+  // Runs before the user-open branch: with a queued prompt, the previous turn's
+  // td record and the next prompt arrive in the same poll — close the old turn
+  // first so the new one isn't killed at birth. (Tradeoff: a complete sub-3s
+  // turn whose prompt+td land in one tick stays open until the next td record,
+  // and can false-fire 'blocked' meanwhile.) An error record lands ~5ms before
+  // its turn's td record (same tick), so the close must check errors first or
+  // failed turns would report turn:finished.
   if (tdCount > state.lastTurnDurationCount) {
     state.tdMode = true
     if (state.turnOpen) {
-      const durationMs =
-        typeof obs.lastTurnDurationMs === 'number' && obs.lastTurnDurationMs > 0
-          ? obs.lastTurnDurationMs
-          : ts - state.turnOpenedAt
-      if (durationMs >= MIN_TURN_MS) events.push({ type: 'turn:finished', ts, durationMs })
+      if (obs.errorCount > state.lastErrorCount && !state.errorEmitted) {
+        events.push({ type: 'turn:error', ts })
+        state.errorEmitted = true
+      } else {
+        const durationMs =
+          typeof obs.lastTurnDurationMs === 'number' && obs.lastTurnDurationMs > 0
+            ? obs.lastTurnDurationMs
+            : ts - state.turnOpenedAt
+        if (durationMs >= MIN_TURN_MS) events.push({ type: 'turn:finished', ts, durationMs })
+      }
       state.turnOpen = false
     }
   }
@@ -101,7 +106,7 @@ function observe(state, obs) {
     state.turnOpen = false
   }
 
-  // Blocked: turn still open, no writes for BLOCKED_MS (once per turn).
+  // Blocked: turn still open, no writes for BLOCKED_MS (once per stall; a write re-arms it).
   if (state.turnOpen && !state.blockedEmitted && ts - state.lastWriteTs >= BLOCKED_MS) {
     events.push({ type: 'blocked', ts, idleMs: ts - state.lastWriteTs })
     state.blockedEmitted = true

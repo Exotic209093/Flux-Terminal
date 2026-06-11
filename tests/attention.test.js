@@ -166,3 +166,13 @@ test('a write while blocked clears the standing blocked state and re-arms the no
   assert.strictEqual(second.length, 1)
   assert.strictEqual(second[0].type, 'blocked')
 })
+
+test('td mode: an errored turn whose error + turn_duration land in one tick fires turn:error, not turn:finished', () => {
+  const s = createAttentionState()
+  observe(s, tdObs(0, 0, 5, 5, 3, 0)) // baseline, td-capable
+  observe(s, tdObs(1000, 1000, 6, 5, 3, 0)) // turn opens
+  const ev = observe(s, tdObs(212000, 212000, 6, 7, 4, 211906, 1)) // error + td same tick
+  assert.strictEqual(ev.length, 1)
+  assert.strictEqual(ev[0].type, 'turn:error')
+  assert.strictEqual(s.turnOpen, false)
+})
