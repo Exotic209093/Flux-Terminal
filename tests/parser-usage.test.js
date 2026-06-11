@@ -26,6 +26,9 @@ test('distinct message ids accumulate normally', () => {
   applyEvent(assistantRecord('msg_2', USAGE), m, null)
   assert.strictEqual(m.usage.output, 200)
   assert.strictEqual(m.counts.assistant, 2)
+  applyEvent(assistantRecord('msg_1', USAGE), m, null) // interleaved duplicate of an older id
+  assert.strictEqual(m.usage.output, 200)
+  assert.strictEqual(m.counts.assistant, 2)
 })
 
 test('records without a message id are each counted (synthetic/error records)', () => {
@@ -49,4 +52,18 @@ test('timeline items are still collected for duplicate-id records (each block re
   applyEvent(assistantRecord('msg_1', USAGE), m, tl)
   applyEvent(assistantRecord('msg_1', USAGE), m, tl)
   assert.strictEqual(tl.length, 2)
+})
+
+test('finalize on a snapshot clone (live-tail pattern) does not break later dedupe', () => {
+  const { finalize } = require('../src/main/parser')
+  const m = freshModel(null)
+  applyEvent(assistantRecord('msg_1', USAGE), m, null)
+  // LiveTracker._emit snapshots mid-stream: finalize a shallow clone
+  const snap = finalize({ ...m, __models: m.__models })
+  assert.strictEqual(snap.usage.output, 100)
+  // the original accumulator must keep deduping after the snapshot
+  applyEvent(assistantRecord('msg_1', USAGE), m, null)
+  applyEvent(assistantRecord('msg_2', USAGE), m, null)
+  assert.strictEqual(m.usage.output, 200)
+  assert.strictEqual(m.counts.assistant, 2)
 })

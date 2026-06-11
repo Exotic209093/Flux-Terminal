@@ -107,7 +107,7 @@ class LiveTracker {
   }
 
   _emit(state, mtimeMs) {
-    // finalize() mutates (strips the Set), so snapshot a shallow clone.
+    // finalize() mutates (strips the internal Sets), so snapshot a shallow clone.
     const snap = finalize({ ...this.model, __models: this.model.__models })
     let subagents = { running: 0, total: 0 }
     if (this.file) {
