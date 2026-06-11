@@ -7,6 +7,7 @@ const path = require('path')
 // "needs you" = toast, sound off.
 const MODES = ['toast', 'badge', 'off']
 const EVENT_KEYS = ['turnFinished', 'turnError', 'blocked', 'usageThreshold']
+const ANIM_MODES = ['auto', 'on', 'off']
 
 const DEFAULT_PROFILES = [
   { id: 'powershell', name: 'PowerShell (here)', shell: null, args: [], cwd: null },
@@ -14,7 +15,8 @@ const DEFAULT_PROFILES = [
 ]
 
 const DEFAULTS = {
-  version: 1,
+  version: 2,
+  appearance: { theme: 'midnight', animations: 'auto', model: null },
   notify: {
     turnFinished: 'badge',
     turnError: 'toast',
@@ -24,7 +26,8 @@ const DEFAULTS = {
     muted: false
   },
   profiles: DEFAULT_PROFILES,
-  workspace: null
+  workspace: null,
+  appearanceMigrated: false
 }
 
 function clone(o) {
@@ -58,6 +61,13 @@ class SettingsStore {
       }
       if (Array.isArray(parsed.profiles)) this.data.profiles = parsed.profiles
       if (parsed.workspace && typeof parsed.workspace === 'object') this.data.workspace = parsed.workspace
+      if (parsed.appearance && typeof parsed.appearance === 'object') {
+        const a = parsed.appearance
+        if (typeof a.theme === 'string' && a.theme) this.data.appearance.theme = a.theme
+        if (ANIM_MODES.includes(a.animations)) this.data.appearance.animations = a.animations
+        if (typeof a.model === 'string' || a.model === null) this.data.appearance.model = a.model
+      }
+      if (typeof parsed.appearanceMigrated === 'boolean') this.data.appearanceMigrated = parsed.appearanceMigrated
     } catch {
       this.data = clone(DEFAULTS) // corrupt → defaults
     }
@@ -91,6 +101,42 @@ class SettingsStore {
     return this.get()
   }
 
+  getAppearance() {
+    return clone(this.data.appearance)
+  }
+
+  setAppearance(key, value) {
+    if (key === 'theme') {
+      if (typeof value !== 'string' || !value) throw new Error('theme must be a non-empty string')
+      this.data.appearance.theme = value
+    } else if (key === 'animations') {
+      if (!ANIM_MODES.includes(value)) throw new Error('invalid animations: ' + value)
+      this.data.appearance.animations = value
+    } else if (key === 'model') {
+      if (value !== null && (typeof value !== 'string' || !value)) throw new Error('model must be a non-empty string or null')
+      this.data.appearance.model = value
+    } else {
+      throw new Error('unknown appearance key: ' + key)
+    }
+    this._save()
+    return this.get()
+  }
+
+  setMigrated(value) {
+    this.data.appearanceMigrated = !!value
+    this._save()
+    return this.get()
+  }
+
+  // Dotted-path setter used by the generic settings:set IPC.
+  setByPath(path, value) {
+    const [section, key] = String(path).split('.')
+    if (section === 'appearance') return this.setAppearance(key, value)
+    if (section === 'notify') return this.setNotify(key, value)
+    if (path === 'appearanceMigrated') return this.setMigrated(value)
+    throw new Error('unknown settings path: ' + path)
+  }
+
   getProfiles() {
     return clone(this.data.profiles)
   }
@@ -121,4 +167,4 @@ class SettingsStore {
   }
 }
 
-module.exports = { SettingsStore, DEFAULTS, MODES, EVENT_KEYS, DEFAULT_PROFILES }
+module.exports = { SettingsStore, DEFAULTS, MODES, EVENT_KEYS, DEFAULT_PROFILES, ANIM_MODES }
