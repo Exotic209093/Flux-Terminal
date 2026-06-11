@@ -66,6 +66,7 @@ function freshModel(file) {
     version: null,
     models: [],
     __models: new Set(),
+    __usageIds: new Set(), // message.ids already counted (streamed blocks share an id)
     firstTimestamp: null,
     lastTimestamp: null,
     counts: { user: 0, assistant: 0, toolUse: 0, toolResult: 0, thinking: 0, system: 0, image: 0, total: 0 },
@@ -123,15 +124,22 @@ function applyEvent(o, model, timeline) {
       walkContent(o, model, timeline, 'user')
       break
     case 'assistant': {
-      model.counts.assistant++
       const msg = o.message || {}
-      if (msg.model) model.__models.add(msg.model)
-      addUsage(model.usage, msg.usage)
-      const u = msg.usage
-      if (u) {
-        // Prompt tokens for this turn = current context fill; keep the latest.
-        model.lastContextTokens =
-          (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0)
+      // Claude Code writes one record per streamed content block; records of the
+      // same message share message.id with byte-identical usage. Count each
+      // message once — otherwise tokens inflate 2.4-2.75x (verified 2026-06-11).
+      const msgId = msg.id || null
+      if (!msgId || !model.__usageIds.has(msgId)) {
+        if (msgId) model.__usageIds.add(msgId)
+        model.counts.assistant++
+        if (msg.model) model.__models.add(msg.model)
+        addUsage(model.usage, msg.usage)
+        const u = msg.usage
+        if (u) {
+          // Prompt tokens for this turn = current context fill; keep the latest.
+          model.lastContextTokens =
+            (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0)
+        }
       }
       walkContent(o, model, timeline, 'assistant')
       break
@@ -225,6 +233,7 @@ function finalize(model) {
   model.counts.total = model.counts.user + model.counts.assistant
   model.models = Array.from(model.__models)
   delete model.__models
+  delete model.__usageIds
   return model
 }
 
