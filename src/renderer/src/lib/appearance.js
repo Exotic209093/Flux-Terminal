@@ -34,3 +34,21 @@ export function saveAnimations(on) {
     /* ignore */
   }
 }
+
+// Tri-state animation pref -> concrete boolean. 'auto' follows the OS setting.
+export function resolveMotion(animations, reducedMotion) {
+  if (animations === 'on') return true
+  if (animations === 'off') return false
+  return !reducedMotion // 'auto'
+}
+
+// Merge legacy localStorage values into the stored appearance object. Legacy
+// wins where present + valid. legacy = { theme, animations: '1'|'0'|null, model }.
+export function mergeLegacyAppearance(current, legacy) {
+  const out = { ...current }
+  if (typeof legacy.theme === 'string' && legacy.theme) out.theme = legacy.theme
+  if (legacy.animations === '1') out.animations = 'on'
+  else if (legacy.animations === '0') out.animations = 'off'
+  if (typeof legacy.model === 'string' && legacy.model) out.model = legacy.model
+  return out
+}
