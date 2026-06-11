@@ -46,10 +46,33 @@ function observe(state, obs) {
     return events
   }
 
-  // A write (mtime changed) resets the blocked clock.
+  // A write (mtime changed) resets the blocked clock — and re-arms blocked:
+  // the write means the stall (if any) resolved, so the standing status clears
+  // and a second ≥BLOCKED_MS stall in the same turn can notify again.
   if (obs.mtimeMs !== state.lastMtime) {
     state.lastMtime = obs.mtimeMs
     state.lastWriteTs = ts
+    state.blockedEmitted = false
+  }
+
+  // Exact close: the CLI wrote a turn_duration record with the real duration.
+  // Once any td record is seen, assistant records (which arrive mid-turn,
+  // between tool calls) stop closing turns — only this branch does.
+  // Runs before the user-open branch: with a queued prompt, the previous
+  // turn's td record and the next prompt arrive in the same poll — close the
+  // old turn first so the new one isn't killed at birth. Poll-granularity
+  // tradeoff: a complete sub-3s turn whose user+td land in one tick leaves
+  // the turn open until the next td record (rare).
+  if (tdCount > state.lastTurnDurationCount) {
+    state.tdMode = true
+    if (state.turnOpen) {
+      const durationMs =
+        typeof obs.lastTurnDurationMs === 'number' && obs.lastTurnDurationMs > 0
+          ? obs.lastTurnDurationMs
+          : ts - state.turnOpenedAt
+      if (durationMs >= MIN_TURN_MS) events.push({ type: 'turn:finished', ts, durationMs })
+      state.turnOpen = false
+    }
   }
 
   // New user message → a turn opened.
@@ -65,21 +88,6 @@ function observe(state, obs) {
     events.push({ type: 'turn:error', ts })
     state.errorEmitted = true
     state.turnOpen = false
-  }
-
-  // Exact close: the CLI wrote a turn_duration record with the real duration.
-  // Once any td record is seen, assistant records (which arrive mid-turn,
-  // between tool calls) stop closing turns — only this branch does.
-  if (tdCount > state.lastTurnDurationCount) {
-    state.tdMode = true
-    if (state.turnOpen) {
-      const durationMs =
-        typeof obs.lastTurnDurationMs === 'number' && obs.lastTurnDurationMs > 0
-          ? obs.lastTurnDurationMs
-          : ts - state.turnOpenedAt
-      if (durationMs >= MIN_TURN_MS) events.push({ type: 'turn:finished', ts, durationMs })
-      state.turnOpen = false
-    }
   }
 
   // New assistant message closing an open turn → turn:finished if long enough.

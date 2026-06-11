@@ -136,3 +136,33 @@ test('legacy transcripts (no turn_duration anywhere) keep the assistant-close be
   assert.strictEqual(ev.length, 1)
   assert.strictEqual(ev[0].type, 'turn:finished')
 })
+
+test('td mode: queued prompt — previous turn closes and the new turn opens in the same observation', () => {
+  const s = createAttentionState()
+  observe(s, tdObs(0, 0, 5, 5, 3, 0)) // baseline, td-capable
+  observe(s, tdObs(1000, 1000, 6, 5, 3, 0)) // turn 1 opens
+  // one poll sees turn 1's td record AND the queued prompt for turn 2
+  const ev = observe(s, tdObs(60000, 60000, 7, 7, 4, 45000))
+  assert.strictEqual(ev.length, 1)
+  assert.strictEqual(ev[0].type, 'turn:finished')
+  assert.strictEqual(ev[0].durationMs, 45000)
+  assert.strictEqual(s.turnOpen, true) // turn 2 is alive
+  // turn 2's own td record later closes it with its own duration
+  const ev2 = observe(s, tdObs(120000, 120000, 7, 9, 5, 55000))
+  assert.strictEqual(ev2.length, 1)
+  assert.strictEqual(ev2[0].durationMs, 55000)
+})
+
+test('a write while blocked clears the standing blocked state and re-arms the notification', () => {
+  const s = createAttentionState()
+  observe(s, obs(0, 0, 0, 0))
+  observe(s, obs(1000, 1000, 1, 0)) // turn opens, last write @1000
+  const first = observe(s, obs(1000 + BLOCKED_MS + 1, 1000, 1, 0)) // stall → blocked
+  assert.strictEqual(first.length, 1)
+  assert.strictEqual(s.blockedEmitted, true)
+  observe(s, obs(1000 + BLOCKED_MS + 5000, 99999, 1, 0)) // user approved → file written
+  assert.strictEqual(s.blockedEmitted, false) // standing status cleared
+  const second = observe(s, obs(1000 + BLOCKED_MS + 5000 + BLOCKED_MS + 1, 99999, 1, 0)) // second stall
+  assert.strictEqual(second.length, 1)
+  assert.strictEqual(second[0].type, 'blocked')
+})
