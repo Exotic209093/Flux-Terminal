@@ -18,7 +18,7 @@ const os = require('os')
 const { randomUUID } = require('crypto')
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const MODEL_RE = /^[a-zA-Z0-9._:-]{1,80}$/
+const MODEL_RE = /^[a-zA-Z0-9._:][a-zA-Z0-9._:-]{0,79}$/
 const TIMEOUT_MS = 150_000
 const LIVE_GUARD_MS = 10_000 // file written this recently => live elsewhere
 const OWN_SEND_GRACE_MS = 30_000 // unless WE wrote it via a recent send
@@ -40,8 +40,14 @@ function needsShell(bin) {
 function resolveClaudeBin({ platform = process.platform, execFile = execFileSync } = {}) {
   try {
     const out = execFile(platform === 'win32' ? 'where.exe' : 'which', ['claude'], { encoding: 'utf-8' })
-    const first = String(out).split(/\r?\n/).map((s) => s.trim()).filter(Boolean)[0]
-    if (first) return first
+    const lines = String(out).split(/\r?\n/).map((s) => s.trim()).filter(Boolean)
+    if (platform !== 'win32') return lines[0] || 'claude'
+    // Windows: `where` can list an extensionless sh shim first (npm/fnm
+    // installs) which CreateProcess can't run — prefer real executables.
+    const exe = lines.find((l) => /\.exe$/i.test(l))
+    if (exe) return exe
+    const shim = lines.find((l) => /\.(cmd|bat)$/i.test(l))
+    if (shim) return shim
   } catch {
     /* not on PATH — the ENOENT/exit path surfaces a friendly error */
   }
@@ -78,6 +84,9 @@ class ClaudeRunner {
     if (!sessionId || !message) return { ok: false, error: 'missing sessionId or message' }
     if (!isValidSessionId(sessionId)) return { ok: false, error: 'invalid session id' }
     if (!isValidModel(model)) return { ok: false, error: 'invalid model name' }
+    if (this.children.has(sessionId)) {
+      return { ok: false, error: 'Already sending to this session — stop it first.' }
+    }
 
     // Guard: can't resume a session that's currently live (being written by
     // another running claude). Recent mtime + we didn't just send here => active
@@ -153,7 +162,11 @@ class ClaudeRunner {
   _run(sessionId, args, cwd, message) {
     let child
     try {
-      child = this._spawn(this.bin, args, { cwd, shell: needsShell(this.bin), windowsHide: true })
+      const useShell = needsShell(this.bin)
+      // Under a shell, cmd.exe re-parses the command line — a path with spaces
+      // must be quoted or 'C:\Users\John' is what runs.
+      const file = useShell && /\s/.test(this.bin) ? '"' + this.bin + '"' : this.bin
+      child = this._spawn(file, args, { cwd, shell: useShell, windowsHide: true })
     } catch (err) {
       return { ok: false, error: err.message }
     }
@@ -197,6 +210,9 @@ class ClaudeRunner {
     child.on('exit', (code) =>
       finish(code === 0 ? 'done' : 'error', code === 0 ? null : stderr.slice(0, 400) || 'claude exited ' + code)
     )
+    // If the child dies before/while we write the prompt, stdin emits EPIPE —
+    // without a handler that's an uncaught exception in the main process.
+    if (typeof child.stdin.on === 'function') child.stdin.on('error', () => {})
     child.stdin.write(message)
     child.stdin.end()
     return { ok: true }

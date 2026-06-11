@@ -2,7 +2,6 @@ const { app, BrowserWindow, ipcMain, dialog, Notification, nativeImage, protocol
 const path = require('path')
 const fs = require('fs')
 const os = require('os')
-const { spawn } = require('child_process')
 const { createPty } = require('./pty')
 const { listSessions, findSessionFileById } = require('./sessions')
 const { parseSessionFile } = require('./parser')
