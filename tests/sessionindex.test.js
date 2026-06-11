@@ -209,3 +209,144 @@ test('summarizeModel maps the accumulator into the listSessions shape', () => {
   assert.ok(s.lastSnippet.includes('the reply'))
   assert.strictEqual(s.mtimeMs, 5)
 })
+
+// ---- watcher events, sweep, deletion ----------------------------------------
+
+test('an fs event for a session file updates it after debounce; nested/non-jsonl events are ignored', async () => {
+  const world = makeWorld()
+  const file = world.addFile('s1', [userLine('hi')], 500)
+  let fire
+  const { idx } = indexFor(world, { watchFactory: (_dir, onEvent) => { fire = onEvent; return { close() {} } } })
+  idx.start()
+  await tick()
+
+  world.append(file, [assistantLine('m1', 'pushed')], 700)
+  fire('proj\\s1.jsonl')
+  await tick()
+  assert.strictEqual(idx.list(10)[0].counts.assistant, 1)
+
+  // these must all be ignored (no throw, no state change)
+  fire('proj\\s1\\subagents\\agent-1.jsonl')
+  fire('proj')
+  fire('proj\\notes.txt')
+  await tick()
+  assert.strictEqual(idx.list(10).length, 1)
+  idx.dispose()
+})
+
+test('the sweep catches changes the watcher missed and evicts deleted files', async () => {
+  const world = makeWorld()
+  const file = world.addFile('s1', [userLine('hi')], 500)
+  world.addFile('gone', [userLine('bye')], 400)
+  const { idx, emitted } = indexFor(world)
+  idx.start()
+  await tick()
+  assert.strictEqual(idx.list(10).length, 2)
+
+  world.append(file, [assistantLine('m1', 'silent change')], 800)
+  world.files.delete('P:\\proj\\gone.jsonl')
+  idx._sweep()
+  await tick()
+
+  const list = idx.list(10)
+  assert.strictEqual(list.length, 1)
+  assert.strictEqual(list[0].counts.assistant, 1)
+  assert.ok(emitted.length >= 2)
+  idx.dispose()
+})
+
+test('a watcher factory that throws leaves the index in sweep-only mode, still correct', async () => {
+  const world = makeWorld()
+  world.addFile('s1', [userLine('hi')], 500)
+  const { idx } = indexFor(world, { watchFactory: () => { throw new Error('EPERM') } })
+  idx.start()
+  await tick()
+  assert.strictEqual(idx.mode, 'sweep-only')
+  assert.strictEqual(idx.list(10).length, 1)
+  idx.dispose()
+})
+
+// ---- watch slot (open session) ----------------------------------------------
+
+test('subscribe returns the full parsed session and deltas emit appended items', async () => {
+  const world = makeWorld()
+  const file = world.addFile('s1', [userLine('hi'), assistantLine('m1', 'first reply')], 500)
+  const appends = []
+  const refreshes = []
+  const { idx } = indexFor(world, {
+    overrides: {
+      onWatchAppend: (p) => appends.push(p),
+      onWatchRefresh: (p) => refreshes.push(p)
+    }
+  })
+  idx.start()
+  await tick()
+
+  const session = idx.subscribe(file)
+  assert.strictEqual(session.ok, true)
+  assert.strictEqual(session.file, file)
+  assert.strictEqual(session.timeline.length, 2) // full timeline, not the ring
+  assert.strictEqual(idx.slotSnapshotFor(file).timeline.length, 2)
+  assert.strictEqual(idx.slotSnapshotFor('P:\\proj\\other.jsonl'), null)
+
+  world.append(file, [assistantLine('m2', 'second reply')], 700)
+  idx._update(file)
+  idx._updateSlot()
+  await tick()
+
+  assert.strictEqual(appends.length, 1)
+  assert.strictEqual(appends[0].file, file)
+  assert.strictEqual(appends[0].items.length, 1)
+  assert.strictEqual(appends[0].items[0].kind, 'text')
+  assert.strictEqual(appends[0].session.counts.assistant, 2)
+  assert.ok(!('timeline' in appends[0].session)) // items carry the delta; session is the summary model
+  assert.strictEqual(refreshes.length, 0)
+
+  idx.unsubscribe()
+  world.append(file, [assistantLine('m3', 'after unsub')], 900)
+  idx._update(file)
+  idx._updateSlot()
+  await tick()
+  assert.strictEqual(appends.length, 1) // nothing after unsubscribe
+  idx.dispose()
+})
+
+test('a slot reset (truncated file) re-seeds and emits a full refresh', async () => {
+  const world = makeWorld()
+  const file = world.addFile('s1', [userLine('hi'), assistantLine('m1', 'one')], 500)
+  const refreshes = []
+  // a tail that resets once, then replays the new content
+  let phase = 0
+  const { idx } = indexFor(world, {
+    overrides: {
+      onWatchRefresh: (p) => refreshes.push(p),
+      makeTail: (f) => {
+        let consumed = 0
+        return {
+          readDelta() {
+            const fw = world.files.get(f)
+            if (phase === 1) {
+              phase = 2
+              consumed = 0
+              return { reset: true, objects: [], size: fw.meta.size, mtimeMs: fw.meta.mtimeMs }
+            }
+            const objects = fw.lines.slice(consumed)
+            consumed = fw.lines.length
+            return { reset: false, objects: objects.slice(), size: fw.meta.size, mtimeMs: fw.meta.mtimeMs }
+          }
+        }
+      }
+    }
+  })
+  idx.start()
+  await tick()
+  idx.subscribe(file)
+  world.files.get(file).lines = [userLine('rewritten')]
+  phase = 1
+  idx._updateSlot()
+  await tick()
+  assert.strictEqual(refreshes.length, 1)
+  assert.strictEqual(refreshes[0].session.counts.user, 1)
+  assert.strictEqual(refreshes[0].session.timeline.length, 1)
+  idx.dispose()
+})

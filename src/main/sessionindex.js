@@ -216,6 +216,8 @@ class SessionIndex {
   }
 
   _evict(file) {
+    // `|` not `||`: both deletes must run — short-circuiting would leak a hot
+    // tail whose stale offset corrupts a later read of a recreated file.
     if (this.summaries.delete(file) | this.hot.delete(file)) {
       this._scheduleEmit()
       this._scheduleSave()
@@ -268,8 +270,69 @@ class SessionIndex {
     )
   }
 
+  /**
+   * Subscribe the single open-session slot to `file`. Seeds a full-timeline
+   * accumulator (one full read — the same parse session:read used to do) and
+   * returns the parsed session. Replaces any previous subscription.
+   */
+  subscribe(file) {
+    this.unsubscribe()
+    const tail = this.makeTail(file)
+    const model = freshModel(file)
+    const timeline = []
+    let delta
+    try {
+      delta = tail.readDelta()
+    } catch (err) {
+      return { ok: false, error: err.message, file }
+    }
+    for (const o of delta.objects) applyEvent(o, model, timeline)
+    this.watchSlot = { file, tail, model, timeline }
+    return this._slotSnapshot()
+  }
+
+  unsubscribe() {
+    this.watchSlot = null
+  }
+
+  /** The full parsed session for `file` IF it is the subscribed slot, else null. */
+  slotSnapshotFor(file) {
+    if (!this.watchSlot || this.watchSlot.file !== file) return null
+    return this._slotSnapshot()
+  }
+
+  _slotSnapshot() {
+    const s = this.watchSlot
+    const snap = snapshotModel(s.model)
+    return { ...snap, ok: true, timeline: s.timeline.slice() }
+  }
+
   _updateSlot() {
-    /* implemented in Task 3 */
+    const s = this.watchSlot
+    if (!s) return
+    let delta
+    try {
+      delta = s.tail.readDelta()
+    } catch {
+      return // mid-write/transient — the next event or sweep retries
+    }
+    if (delta.reset) {
+      s.model = freshModel(s.file)
+      s.timeline = []
+      try {
+        delta = s.tail.readDelta()
+      } catch {
+        return
+      }
+      for (const o of delta.objects) applyEvent(o, s.model, s.timeline)
+      this.onWatchRefresh({ file: s.file, session: this._slotSnapshot() })
+      return
+    }
+    if (!delta.objects.length) return
+    const before = s.timeline.length
+    for (const o of delta.objects) applyEvent(o, s.model, s.timeline)
+    const items = s.timeline.slice(before)
+    this.onWatchAppend({ file: s.file, session: { ...snapshotModel(s.model), ok: true }, items })
   }
 
   // ---- debounced outputs ----------------------------------------------------
