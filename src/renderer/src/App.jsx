@@ -6,13 +6,13 @@ import StatsView from './components/StatsView'
 import SkillsView from './components/SkillsView'
 import MissionControl from './components/MissionControl'
 import SearchOverlay from './components/SearchOverlay'
-import { applyTheme, loadTheme, saveTheme } from './lib/themes'
 import UsageBar from './components/UsageBar'
 import ControlBar from './components/ControlBar'
 import NotificationBell from './components/NotificationBell'
 import { DEFAULT_MODEL, isKnownModel } from './lib/models'
 import ThemeBackground from './components/ThemeBackground'
-import { loadAnimations, saveAnimations } from './lib/appearance'
+import { resolveMotion, prefersReducedMotion } from './lib/appearance'
+import { useSettings } from './lib/settings-context'
 
 // The terminal stays MOUNTED at all times so its PTY (and any running `claude`)
 // survives switching to a session/stats view and back. Opening a session also
@@ -31,21 +31,12 @@ export default function App() {
   const [newChat, setNewChat] = useState(null) // { cwd } when composing a new chat
   const [activePtyId, setActivePtyId] = useState(null)
 
-  const [theme, setThemeState] = useState(loadTheme())
-  const [animations, setAnimationsState] = useState(loadAnimations())
-  const setAnimations = useCallback((on) => {
-    saveAnimations(on)
-    setAnimationsState(on)
-  }, [])
-
-  const [model, setModelState] = useState(() => {
-    const saved = localStorage.getItem('flux.model')
-    return saved && isKnownModel(saved) ? saved : DEFAULT_MODEL
-  })
-  const setModel = useCallback((m) => {
-    localStorage.setItem('flux.model', m)
-    setModelState(m)
-  }, [])
+  const { settings, update } = useSettings()
+  const theme = settings.appearance.theme
+  const animated = resolveMotion(settings.appearance.animations, prefersReducedMotion())
+  const model = isKnownModel(settings.appearance.model) ? settings.appearance.model : DEFAULT_MODEL
+  const setTheme = (t) => update('appearance.theme', t)
+  const setModel = (m) => update('appearance.model', m)
 
   const openFileRef = useRef(null) // the file currently watched, for refresh matching
   const [searchOpen, setSearchOpen] = useState(false)
@@ -53,10 +44,6 @@ export default function App() {
 
   const [live, setLive] = useState(null)
   useEffect(() => window.flux.live.onUpdate(setLive), [])
-
-  useEffect(() => {
-    applyTheme(theme, { motion: animations })
-  }, [theme, animations])
 
   // Ctrl+Shift+F opens the search overlay from anywhere in the app
   useEffect(() => {
@@ -71,11 +58,6 @@ export default function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [])
-
-  const setTheme = useCallback((t) => {
-    saveTheme(t)
-    setThemeState(t)
   }, [])
 
   // One session-list fetch, shared by the sidebar and the stats view.
@@ -258,7 +240,7 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <ThemeBackground theme={theme} animated={animations} />
+      <ThemeBackground theme={theme} animated={animated} />
       <Sidebar
         sessions={sessions}
         loading={sessionsLoading}
@@ -314,8 +296,7 @@ export default function App() {
             liveActive={!!(live && live.tracking && live.state === 'live')}
             onAgentsClick={() => setView('terminal')}
             ptyId={activePtyId}
-            animations={animations}
-            onToggleAnimations={setAnimations}
+            onOpenSettings={() => setView('settings')}
           />
           <NotificationBell onOpenSession={(id) => {
             const sess = sessions.find((s) => s.sessionId === id)
