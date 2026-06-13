@@ -66,6 +66,7 @@ function listSubagents(sessionFile, opts = {}) {
       label,
       agentType: (meta && meta.agentType) || null,
       name: (meta && meta.name) || null,
+      toolUseId: (meta && meta.toolUseId) || null,
       status,
       counts: parsed.counts,
       usage: parsed.usage,

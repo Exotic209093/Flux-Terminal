@@ -14,6 +14,7 @@ const fs = require('fs')
 const MAX_TEXT = 6000 // cap per-item text so a huge message can't bloat the UI
 const MAX_IMAGE_B64 = 2_000_000 // ~1.5 MB decoded; bigger images become placeholders
 const MAX_IMAGES = 40 // per parse — a screenshot-heavy session can't bloat the IPC payload
+const MAX_RESULT = 4000 // cap for attached tool results / patches / stdout (IPC payload discipline)
 const STREAM_CHUNK = 1 << 20 // 1 MiB read buffer for the cold/whole-file path
 
 /** Parse one line; return the object or null if it isn't valid JSON yet. */
@@ -80,6 +81,8 @@ function freshModel(file) {
     lastTurnDurationMs: 0,
     parseErrors: 0,
     errorCount: 0, // best-effort count of error/failure records (attention.js consumes deltas)
+    hookCount: 0, // attachment/hook-execution records (hooks panel #13)
+    compactions: 0, // system/compact_boundary records (context-pressure gauge #13)
     lineCount: 0
   }
 }
@@ -110,8 +113,19 @@ function isRealUserPrompt(o) {
   return false
 }
 
+/** Cap a structuredPatch so a giant diff can't bloat the IPC payload. */
+function capPatch(patch) {
+  try {
+    if (JSON.stringify(patch).length <= MAX_RESULT) return patch
+  } catch {
+    /* fall through */
+  }
+  return { truncated: true }
+}
+
 /** Apply one parsed event object to the accumulator (and optional timeline). */
 function applyEvent(o, model, timeline) {
+  const __startLen = timeline ? timeline.length : 0
   model.lineCount++
   if (isErrorRecord(o)) model.errorCount++
   if (o.sessionId && !model.sessionId) model.sessionId = o.sessionId
@@ -166,9 +180,39 @@ function applyEvent(o, model, timeline) {
         model.turnDurationCount++
         if (typeof o.durationMs === 'number') model.lastTurnDurationMs = o.durationMs
       }
+      if (o.subtype === 'compact_boundary') {
+        model.compactions++
+        if (timeline) timeline.push({ kind: 'compact', ts: o.timestamp || null })
+      }
       break
+    case 'attachment': {
+      const a = o.attachment
+      if (a && typeof a === 'object') {
+        model.hookCount++
+        if (timeline) {
+          timeline.push({
+            kind: 'hook',
+            ts: o.timestamp || null,
+            hookName: a.hookName || null,
+            hookEvent: a.hookEvent || null,
+            status: a.type || null,
+            toolUseId: a.toolUseID || null,
+            text: truncate(typeof a.stdout === 'string' && a.stdout ? a.stdout : a.content || '', MAX_RESULT)
+          })
+        }
+      }
+      break
+    }
     default:
       break
+  }
+
+  // Conversation-threading ids on every item this record produced (constellation #13).
+  if (timeline) {
+    for (let i = __startLen; i < timeline.length; i++) {
+      if (timeline[i].uuid === undefined) timeline[i].uuid = o.uuid || null
+      if (timeline[i].parentUuid === undefined) timeline[i].parentUuid = o.parentUuid || null
+    }
   }
 }
 
@@ -201,7 +245,7 @@ function walkContent(o, model, timeline, role) {
           model.tools[block.name] = (model.tools[block.name] || 0) + 1
           model.lastTool = block.name
         }
-        if (timeline) timeline.push({ kind: 'tool_use', ts, toolName: block.name || 'tool', toolInput: preview(block.input) })
+        if (timeline) timeline.push({ kind: 'tool_use', ts, id: block.id || null, toolName: block.name || 'tool', toolInput: preview(block.input) })
         break
       case 'image':
         pushImage(block, model, timeline, ts)
@@ -219,7 +263,18 @@ function walkContent(o, model, timeline, role) {
                 600
               )
             : preview(block.content)
-          timeline.push({ kind: 'tool_result', ts, isError: !!block.is_error, text })
+          const item = { kind: 'tool_result', ts, isError: !!block.is_error, text }
+          const tur = o.toolUseResult
+          if (tur && typeof tur === 'object') {
+            const result = {}
+            if (Array.isArray(tur.structuredPatch)) result.structuredPatch = capPatch(tur.structuredPatch)
+            const fp = tur.filePath || (tur.file && tur.file.filePath)
+            if (fp) result.filePath = fp
+            if (typeof tur.stdout === 'string') result.stdout = truncate(tur.stdout, MAX_RESULT)
+            if (typeof tur.stderr === 'string') result.stderr = truncate(tur.stderr, MAX_RESULT)
+            if (Object.keys(result).length) item.result = result
+          }
+          timeline.push(item)
         }
         if (inner) {
           for (const b of inner) {
