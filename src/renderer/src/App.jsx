@@ -10,6 +10,7 @@ import SearchOverlay from './components/SearchOverlay'
 import UsageBar from './components/UsageBar'
 import ControlBar from './components/ControlBar'
 import NotificationBell from './components/NotificationBell'
+import ErrorBoundary from './components/ErrorBoundary'
 import { DEFAULT_MODEL, isKnownModel } from './lib/models'
 import ThemeBackground from './components/ThemeBackground'
 import { resolveMotion, prefersReducedMotion } from './lib/appearance'
@@ -297,43 +298,45 @@ export default function App() {
         <div className="pane-slot" style={{ display: view === 'terminal' ? 'flex' : 'none' }}>
           <TerminalWorkspace theme={theme} onActivePty={setActivePtyId} />
         </div>
-        {view === 'session' && (
-          <div className="pane-slot">
-            <SessionView
-              detail={detail}
-              loading={loadingDetail}
-              sendState={sendState}
-              sendError={sendError}
-              onSend={newChat ? sendNewChat : sendMessage}
-              newChat={newChat}
-              scrollTarget={scrollTarget}
-              onPickFolder={async () => {
-                const r = await window.flux.dialog.pickFolder()
-                if (r.ok) setNewChat((nc) => ({ ...(nc || {}), cwd: r.path }))
-              }}
-            />
-          </div>
-        )}
-        {view === 'stats' && (
-          <div className="pane-slot">
-            <StatsView sessions={sessions} loading={sessionsLoading} />
-          </div>
-        )}
-        {view === 'skills' && (
-          <div className="pane-slot">
-            <SkillsView />
-          </div>
-        )}
-        {view === 'mission' && (
-          <div className="pane-slot">
-            <MissionControl onOpenCard={openCard} />
-          </div>
-        )}
-        {view === 'settings' && (
-          <div className="pane-slot">
-            <SettingsPage />
-          </div>
-        )}
+        <ErrorBoundary key={view} inline title="This view failed to render">
+          {view === 'session' && (
+            <div className="pane-slot">
+              <SessionView
+                detail={detail}
+                loading={loadingDetail}
+                sendState={sendState}
+                sendError={sendError}
+                onSend={newChat ? sendNewChat : sendMessage}
+                newChat={newChat}
+                scrollTarget={scrollTarget}
+                onPickFolder={async () => {
+                  const r = await window.flux.dialog.pickFolder()
+                  if (r.ok) setNewChat((nc) => ({ ...(nc || {}), cwd: r.path }))
+                }}
+              />
+            </div>
+          )}
+          {view === 'stats' && (
+            <div className="pane-slot">
+              <StatsView sessions={sessions} loading={sessionsLoading} />
+            </div>
+          )}
+          {view === 'skills' && (
+            <div className="pane-slot">
+              <SkillsView />
+            </div>
+          )}
+          {view === 'mission' && (
+            <div className="pane-slot">
+              <MissionControl onOpenCard={openCard} />
+            </div>
+          )}
+          {view === 'settings' && (
+            <div className="pane-slot">
+              <SettingsPage />
+            </div>
+          )}
+        </ErrorBoundary>
       </main>
 
       {searchOpen && (

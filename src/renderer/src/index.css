@@ -1992,3 +1992,9 @@ html[data-theme="matrix"] .theme-bg { background: #050a05; }
 .set-test-btn { margin-top: 14px; background: var(--accent); color: var(--bg); border: none; border-radius: 7px;
   padding: 8px 14px; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
 .set-test-btn:hover { filter: brightness(1.08); }
+
+.error-boundary { padding: 32px; max-width: 720px; margin: 40px auto; color: var(--text); }
+.error-boundary.inline { margin: 16px; }
+.error-boundary h2 { margin: 0 0 8px; }
+.error-boundary button { margin: 8px 0; padding: 6px 14px; cursor: pointer; }
+.error-boundary pre { white-space: pre-wrap; font-size: 11px; color: var(--text-faint); max-height: 240px; overflow: auto; }
