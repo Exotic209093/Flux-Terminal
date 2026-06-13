@@ -7,6 +7,7 @@ import SlashMenu from './SlashMenu'
 import PromptMenu from './PromptMenu'
 import Lightbox from './Lightbox'
 import SubagentPanel from './SubagentPanel'
+import TimelineItem from './TimelineItem'
 
 function duration(start, end) {
   if (!start || !end) return null
@@ -18,55 +19,12 @@ function duration(start, end) {
   return h + 'h ' + (m % 60) + 'm'
 }
 
-const KIND_LABEL = {
-  user: 'You',
-  text: 'Claude',
-  thinking: 'Thinking',
-  tool_use: 'Tool',
-  tool_result: 'Result',
-  image: 'Image'
-}
-
 function friendlyError(err) {
   if (!err) return 'Send failed.'
   if (/No conversation found/i.test(err)) {
     return "Couldn't resume this session. It's likely running live right now — you can't message an in-progress session (e.g. the one you're chatting in elsewhere). Open a past session to continue it."
   }
   return err
-}
-
-function TimelineItem({ item, onImage, flash }) {
-  const cls = 'tl-item tl-' + item.kind + (item.isError ? ' tl-error' : '') + (flash ? ' tl-flash' : '')
-  return (
-    <div className={cls}>
-      <div className="tl-gutter">
-        <span className="tl-label">{KIND_LABEL[item.kind] || item.kind}</span>
-      </div>
-      <div className="tl-body">
-        {item.kind === 'tool_use' ? (
-          <div>
-            <span className="tl-tool">{item.toolName}</span>
-            {item.toolInput && <pre className="tl-pre">{item.toolInput}</pre>}
-          </div>
-        ) : item.kind === 'tool_result' ? (
-          <pre className="tl-pre tl-dim">{item.text}</pre>
-        ) : item.kind === 'image' ? (
-          item.truncated ? (
-            <div className="tl-img-omitted">🖼 image omitted (too large)</div>
-          ) : (
-            <img
-              className="tl-img"
-              src={`data:${item.mediaType};base64,${item.data}`}
-              alt="session image"
-              onClick={() => onImage && onImage(item)}
-            />
-          )
-        ) : (
-          <div className="tl-text">{item.text}</div>
-        )}
-      </div>
-    </div>
-  )
 }
 
 export default function SessionView({ detail, loading, sendState, sendError, onSend, newChat, onPickFolder, scrollTarget }) {

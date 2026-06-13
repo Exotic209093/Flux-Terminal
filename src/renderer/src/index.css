@@ -2031,3 +2031,8 @@ html[data-theme="matrix"] .theme-bg { background: #050a05; }
 .md table { border-collapse: collapse; margin: 8px 0; }
 .md th, .md td { border: 1px solid var(--border, #2a2a2a); padding: 4px 8px; }
 .md h1, .md h2, .md h3 { margin: 10px 0 6px; }
+
+/* ---- TimelineItem: timestamps + collapsible thinking -------------------- */
+.tl-ts { color: var(--text-faint); font-size: 10px; margin-left: 6px; }
+.tl-thinking-toggle { background: none; border: none; color: var(--text-faint); cursor: pointer; font-size: 12px; padding: 0; }
+.tl-thinking { font-style: normal; }
