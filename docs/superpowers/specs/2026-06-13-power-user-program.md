@@ -65,3 +65,14 @@ Two foundation residuals remain and fold into sub-project #1: one unvalidated `p
 - OSC 133 shell-integration injection: confirm opt-in vs auto PowerShell-profile hook at #10.
 - worktree-per-session spawn + local task-queue/scheduler: Cockpit-tier items parked until after v1.0 unless pulled forward.
 - Fork-from-here: fork-from-latest is nearly free; midpoint forks need per-line sessionId rewrite — likely deferred.
+
+## Sub-project #1 — shipped 2026-06-13 (branch `feat/production-hardening-onboarding`)
+
+All 11 plan tasks DONE, spec-compliant, quality-approved; 273/273 tests pass, build clean, final review ready-to-merge. Minor follow-ups the review surfaced (none blocking, parked for a polish pass):
+
+- **Welcome `sessionCount`**: `env:doctor` uses `sessionIndex.list(1).length`, so the "Sessions found" row shows 0 or 1 — misleading for an existing user who sees the first-run screen once after upgrading. Fix: add `SessionIndex.count()` (exact, uncapped) or show presence not a number. (First-run only; new users see 0 correctly.)
+- `streamLinesSync` can emit an empty-string line (filtered downstream by `!line.trim()`); add a JSDoc note or guard before reuse.
+- `WelcomeScreen` `env.doctor().then()` has no `.catch()` (the handler returns `{ok:false}` rather than rejecting, so practically safe).
+- `env.doctor()` runs twice on first launch (App banner + WelcomeScreen) — pass the result down as a prop to halve the IPC.
+- `crashlog.rotateIfNeeded` cascade (main.1→main.2) isn't unit-tested; the single-slot path is.
+- `welcome-overlay` shares `z-index:50` with `.bell-panel` (no real-world collision at first run).
