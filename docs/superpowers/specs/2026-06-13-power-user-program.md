@@ -76,3 +76,11 @@ All 11 plan tasks DONE, spec-compliant, quality-approved; 273/273 tests pass, bu
 - `env.doctor()` runs twice on first launch (App banner + WelcomeScreen) — pass the result down as a prop to halve the IPC.
 - `crashlog.rotateIfNeeded` cascade (main.1→main.2) isn't unit-tested; the single-slot path is.
 - `welcome-overlay` shares `z-index:50` with `.bell-panel` (no real-world collision at first run).
+
+## Sub-project #2 — shipped + LIVE 2026-06-13 (▶ Checkpoint A reached)
+
+CI + auto-update pipeline merged to main and wired live. 276 tests pass; CI green on push (windows-latest, Node 24, test+build); `release.yml` builds the NSIS installer on tag push and publishes to GitHub Releases via electron-builder + `GITHUB_TOKEN`. **`v0.1.0` is the first published release** — live at https://github.com/Exotic209093/Flux-Terminal/releases/tag/v0.1.0 (installer 103 MB + `latest.yml`). electron-updater (`src/main/updater.js`, lazy-require, no-op in dev) checks on launch in packaged builds. main pushed to origin (public repo). **This is Checkpoint A — internal-team-ready: stable, installable, auto-updating.**
+
+Gotcha fixed: electron-builder's GitHub publisher defaults to `releaseType: draft` (invisible on Releases page + electron-updater can't read a draft) — set `releaseType: release` in the publish block so tag-push → live release → auto-update works.
+
+Next: #3 JSONL Parser Goldmine Extraction (no-UI data enabler; gates #5/#6/#13).
