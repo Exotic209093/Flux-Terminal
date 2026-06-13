@@ -81,6 +81,7 @@ function freshModel(file) {
     lastTurnDurationMs: 0,
     parseErrors: 0,
     errorCount: 0, // best-effort count of error/failure records (attention.js consumes deltas)
+    hookCount: 0, // attachment/hook-execution records (hooks panel #13)
     lineCount: 0
   }
 }
@@ -179,6 +180,24 @@ function applyEvent(o, model, timeline) {
         if (typeof o.durationMs === 'number') model.lastTurnDurationMs = o.durationMs
       }
       break
+    case 'attachment': {
+      const a = o.attachment
+      if (a && typeof a === 'object') {
+        model.hookCount++
+        if (timeline) {
+          timeline.push({
+            kind: 'hook',
+            ts: o.timestamp || null,
+            hookName: a.hookName || null,
+            hookEvent: a.hookEvent || null,
+            status: a.type || null,
+            toolUseId: a.toolUseID || null,
+            text: truncate(typeof a.stdout === 'string' && a.stdout ? a.stdout : a.content || '', MAX_RESULT)
+          })
+        }
+      }
+      break
+    }
     default:
       break
   }

@@ -53,3 +53,17 @@ test('an oversized structuredPatch is marked truncated, not inlined whole', () =
   const res = r.timeline.find((t) => t.kind === 'tool_result')
   assert.strictEqual(res.result.structuredPatch.truncated, true)
 })
+
+test('attachment records become hook timeline items and bump hookCount', () => {
+  const f = tmp([
+    { type: 'attachment', uuid: 'h1', timestamp: '2026-01-01T00:00:00Z',
+      attachment: { type: 'hook_success', hookName: 'SessionStart:startup', hookEvent: 'SessionStart', toolUseID: 'tu9', content: '', stdout: 'ran the hook' } }
+  ])
+  const r = parseSessionFile(f, { timeline: true })
+  const hook = r.timeline.find((t) => t.kind === 'hook')
+  assert.strictEqual(hook.hookName, 'SessionStart:startup')
+  assert.strictEqual(hook.status, 'hook_success')
+  assert.strictEqual(hook.toolUseId, 'tu9')
+  assert.strictEqual(hook.text, 'ran the hook')
+  assert.strictEqual(r.hookCount, 1)
+})
