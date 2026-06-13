@@ -15,7 +15,7 @@ const DEFAULT_PROFILES = [
 ]
 
 const DEFAULTS = {
-  version: 2,
+  version: 3,
   appearance: { theme: 'midnight', animations: 'auto', model: null },
   notify: {
     turnFinished: 'badge',
@@ -27,6 +27,7 @@ const DEFAULTS = {
   },
   profiles: DEFAULT_PROFILES,
   workspace: null,
+  onboarding: { dismissed: false, version: 1 },
   appearanceMigrated: false
 }
 
@@ -68,6 +69,10 @@ class SettingsStore {
         if (typeof a.model === 'string' || a.model === null) this.data.appearance.model = a.model
       }
       if (typeof parsed.appearanceMigrated === 'boolean') this.data.appearanceMigrated = parsed.appearanceMigrated
+      if (parsed.onboarding && typeof parsed.onboarding === 'object') {
+        if (typeof parsed.onboarding.dismissed === 'boolean') this.data.onboarding.dismissed = parsed.onboarding.dismissed
+        if (typeof parsed.onboarding.version === 'number') this.data.onboarding.version = parsed.onboarding.version
+      }
     } catch {
       this.data = clone(DEFAULTS) // corrupt → defaults
     }
@@ -128,12 +133,27 @@ class SettingsStore {
     return this.get()
   }
 
+  setOnboarding(key, value) {
+    if (key === 'dismissed') {
+      if (typeof value !== 'boolean') throw new Error('onboarding.dismissed must be boolean')
+      this.data.onboarding.dismissed = value
+    } else if (key === 'version') {
+      if (typeof value !== 'number') throw new Error('onboarding.version must be a number')
+      this.data.onboarding.version = value
+    } else {
+      throw new Error('unknown onboarding key: ' + key)
+    }
+    this._save()
+    return this.get()
+  }
+
   // Dotted-path setter used by the generic settings:set IPC.
   setByPath(path, value) {
     const [section, key] = String(path).split('.')
     if (section === 'appearance') return this.setAppearance(key, value)
     if (section === 'notify') return this.setNotify(key, value)
     if (path === 'appearanceMigrated') return this.setMigrated(value)
+    if (section === 'onboarding') return this.setOnboarding(key, value)
     throw new Error('unknown settings path: ' + path)
   }
 
