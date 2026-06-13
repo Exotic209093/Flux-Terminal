@@ -33,3 +33,6 @@ publish:
   provider: github
   owner: Exotic209093
   repo: Flux-Terminal
+  # Publish a live release on tag push (not a draft) so electron-updater can read
+  # latest.yml and the team/OSS users can download immediately.
+  releaseType: release
