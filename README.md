@@ -9,6 +9,14 @@ explorable: live dashboards, theming, a scrubable session timeline, and cross-se
 Built with **Electron + xterm.js + node-pty** (a true ConPTY-backed pseudo-terminal) and a
 **React** UI.
 
+## Download
+
+Grab the latest installer from the
+[Releases page](https://github.com/Exotic209093/Flux-Terminal/releases).
+
+Flux is **not code-signed yet**, so Windows SmartScreen will warn on first run:
+click **More info → Run anyway**. Installed builds auto-update from new releases.
+
 ---
 
 ## Where the files live (important)
