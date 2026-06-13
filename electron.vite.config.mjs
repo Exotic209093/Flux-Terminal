@@ -39,7 +39,8 @@ export default defineConfig({
           sessionindex: resolve('src/main/sessionindex.js'),
           searchindex: resolve('src/main/searchindex.js'),
           environment: resolve('src/main/environment.js'),
-          crashlog: resolve('src/main/crashlog.js')
+          crashlog: resolve('src/main/crashlog.js'),
+          updater: resolve('src/main/updater.js')
         },
         output: {
           entryFileNames: '[name].js'
