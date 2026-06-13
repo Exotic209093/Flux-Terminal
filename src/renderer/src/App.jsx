@@ -42,20 +42,6 @@ export default function App() {
   const setTheme = (t) => update('appearance.theme', t)
   const setModel = (m) => update('appearance.model', m)
 
-  const showWelcome = !settings.onboarding?.dismissed
-  const dismissWelcome = useCallback(() => update('onboarding.dismissed', true), [update])
-  const welcomeLaunch = useCallback(() => {
-    dismissWelcome()
-    startNewChat()
-  }, [dismissWelcome, startNewChat])
-  const welcomeBrowse = useCallback(async () => {
-    const r = await window.flux.dialog.pickFolder()
-    if (r && r.ok) {
-      dismissWelcome()
-      startNewChat(r.path)
-    }
-  }, [dismissWelcome, startNewChat])
-
   const openFileRef = useRef(null) // the file currently watched, for refresh matching
   const [searchOpen, setSearchOpen] = useState(false)
   const [scrollTarget, setScrollTarget] = useState(null) // { idx, key, sessionId }
@@ -154,6 +140,8 @@ export default function App() {
     [openById]
   )
 
+  // startNewChat must be defined before the welcome handlers that reference it
+  // in their useCallback dependency arrays to avoid a TDZ ReferenceError.
   const startNewChat = useCallback((cwd) => {
     const dir = typeof cwd === 'string' ? cwd : ''
     setSelected(null)
@@ -163,6 +151,20 @@ export default function App() {
     setNewChat({ cwd: dir }) // '' => main defaults to home; user can pick a folder
     setView('session')
   }, [])
+
+  const showWelcome = !settings.onboarding?.dismissed
+  const dismissWelcome = useCallback(() => update('onboarding.dismissed', true), [update])
+  const welcomeLaunch = useCallback(() => {
+    dismissWelcome()
+    startNewChat()
+  }, [dismissWelcome, startNewChat])
+  const welcomeBrowse = useCallback(async () => {
+    const r = await window.flux.dialog.pickFolder()
+    if (r && r.ok) {
+      dismissWelcome()
+      startNewChat(r.path)
+    }
+  }, [dismissWelcome, startNewChat])
 
   const sendNewChat = useCallback(
     (message) => {
