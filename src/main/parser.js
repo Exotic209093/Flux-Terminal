@@ -82,6 +82,7 @@ function freshModel(file) {
     parseErrors: 0,
     errorCount: 0, // best-effort count of error/failure records (attention.js consumes deltas)
     hookCount: 0, // attachment/hook-execution records (hooks panel #13)
+    compactions: 0, // system/compact_boundary records (context-pressure gauge #13)
     lineCount: 0
   }
 }
@@ -178,6 +179,10 @@ function applyEvent(o, model, timeline) {
       if (o.subtype === 'turn_duration') {
         model.turnDurationCount++
         if (typeof o.durationMs === 'number') model.lastTurnDurationMs = o.durationMs
+      }
+      if (o.subtype === 'compact_boundary') {
+        model.compactions++
+        if (timeline) timeline.push({ kind: 'compact', ts: o.timestamp || null })
       }
       break
     case 'attachment': {

@@ -67,3 +67,13 @@ test('attachment records become hook timeline items and bump hookCount', () => {
   assert.strictEqual(hook.text, 'ran the hook')
   assert.strictEqual(r.hookCount, 1)
 })
+
+test('compact_boundary system records become compact markers and bump compactions', () => {
+  const f = tmp([
+    { type: 'system', subtype: 'compact_boundary', uuid: 'c1', timestamp: '2026-01-01T00:00:00Z' }
+  ])
+  const r = parseSessionFile(f, { timeline: true })
+  const c = r.timeline.find((t) => t.kind === 'compact')
+  assert.ok(c)
+  assert.strictEqual(r.compactions, 1)
+})
