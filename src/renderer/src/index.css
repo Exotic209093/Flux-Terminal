@@ -2012,3 +2012,7 @@ html[data-theme="matrix"] .theme-bg { background: #050a05; }
 .welcome-actions button { padding: 9px 14px; cursor: pointer; border-radius: 8px; border: 1px solid var(--border, #232a36); background: transparent; color: var(--text); }
 .welcome-primary { background: var(--accent, #89b4fa) !important; color: #0b0e14 !important; border: none !important; font-weight: 600; }
 .welcome-skip { opacity: 0.7; }
+
+.cli-banner { background: #f9e2af; color: #1a1a1a; padding: 8px 14px; font-size: 13px; }
+.cli-banner code { background: rgba(0,0,0,0.12); padding: 1px 5px; border-radius: 4px; }
+.empty-sessions { padding: 24px 8px; text-align: center; color: var(--text-faint); display: flex; flex-direction: column; gap: 12px; align-items: center; }

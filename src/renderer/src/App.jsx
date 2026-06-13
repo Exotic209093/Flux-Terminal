@@ -49,6 +49,11 @@ export default function App() {
   const [live, setLive] = useState(null)
   useEffect(() => window.flux.live.onUpdate(setLive), [])
 
+  const [doctor, setDoctor] = useState(null)
+  useEffect(() => {
+    window.flux.env.doctor().then((r) => setDoctor(r && r.ok ? r.env : null))
+  }, [])
+
   // Ctrl+Shift+F opens the search overlay from anywhere in the app
   useEffect(() => {
     const onKey = (e) => {
@@ -264,6 +269,11 @@ export default function App() {
         onNewChat={startNewChat}
       />
       <main className="main-pane">
+        {doctor && !doctor.cli.found && (
+          <div className="cli-banner">
+            claude CLI not found on PATH. Install: <code>npm install -g @anthropic-ai/claude-code</code>, then restart Flux.
+          </div>
+        )}
         <div className="topbar">
           <button
             className={'tab' + (view === 'terminal' ? ' active' : '')}
