@@ -101,33 +101,44 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 Create `tests/composerQueue.test.js`:
 
 ```js
-const { test } = require('node:test')
+const { test, describe, before } = require('node:test')
 const assert = require('node:assert')
-const { emptyQueue, enqueue, dequeue, peek, size } = require('../src/renderer/src/lib/composerQueue.js')
 
-test('empty queue', () => {
-  const q = emptyQueue()
-  assert.strictEqual(size(q), 0)
-  assert.strictEqual(peek(q), null)
-  assert.deepStrictEqual(dequeue(q), { state: q, msg: null })
-})
+// Dynamic import so this test file (CJS) can load the ESM module without
+// relying on the require(esm) interop added in Node 22.12 / Node 24. Works
+// on all Node 22+ versions within the engines range.
+describe('composerQueue', () => {
+  let emptyQueue, enqueue, dequeue, peek, size
 
-test('enqueue then dequeue is FIFO and immutable', () => {
-  const q0 = emptyQueue()
-  const q1 = enqueue(q0, 'a')
-  const q2 = enqueue(q1, 'b')
-  assert.strictEqual(size(q0), 0) // original untouched
-  assert.strictEqual(size(q2), 2)
-  assert.strictEqual(peek(q2), 'a')
-  const { state: q3, msg } = dequeue(q2)
-  assert.strictEqual(msg, 'a')
-  assert.strictEqual(size(q3), 1)
-  assert.strictEqual(peek(q3), 'b')
-})
+  before(async () => {
+    const mod = await import('../src/renderer/src/lib/composerQueue.js')
+    ;({ emptyQueue, enqueue, dequeue, peek, size } = mod)
+  })
 
-test('enqueue ignores empty/blank messages', () => {
-  const q = enqueue(enqueue(emptyQueue(), '   '), '')
-  assert.strictEqual(size(q), 0)
+  test('empty queue', () => {
+    const q = emptyQueue()
+    assert.strictEqual(size(q), 0)
+    assert.strictEqual(peek(q), null)
+    assert.deepStrictEqual(dequeue(q), { state: q, msg: null })
+  })
+
+  test('enqueue then dequeue is FIFO and immutable', () => {
+    const q0 = emptyQueue()
+    const q1 = enqueue(q0, 'a')
+    const q2 = enqueue(q1, 'b')
+    assert.strictEqual(size(q0), 0) // original untouched
+    assert.strictEqual(size(q2), 2)
+    assert.strictEqual(peek(q2), 'a')
+    const { state: q3, msg } = dequeue(q2)
+    assert.strictEqual(msg, 'a')
+    assert.strictEqual(size(q3), 1)
+    assert.strictEqual(peek(q3), 'b')
+  })
+
+  test('enqueue ignores empty/blank messages', () => {
+    const q = enqueue(enqueue(emptyQueue(), '   '), '')
+    assert.strictEqual(size(q), 0)
+  })
 })
 ```
 
@@ -167,10 +178,10 @@ function dequeue(q) {
   return { state: { items: rest }, msg }
 }
 
-module.exports = { emptyQueue, enqueue, dequeue, peek, size }
+export { emptyQueue, enqueue, dequeue, peek, size }
 ```
 
-(CommonJS so `node --test` can require it; the renderer imports it via the same bundler path the other `lib/*.js` use — `lib/workspace.js` is required by tests and imported by the renderer the same way.)
+(ESM so Vite can tree-shake and the renderer imports it normally. The test uses dynamic `import()` inside `describe`/`before` so it works on Node 22.0+ without relying on the require(esm) interop that was only stabilised in Node 22.12 / Node 24.)
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -326,25 +337,35 @@ Replace the timeline list block (the `<div className="sv-timeline" ref={scrollRe
           itemContent={(i, item) => (
             <TimelineItem item={item} onImage={setLightbox} flash={i === flashIdx} />
           )}
-          components={{
-            Footer: () => (
-              <>
-                {pending && (
-                  <div className="tl-item tl-user tl-pending">
-                    <div className="tl-gutter"><span className="tl-label">You</span></div>
-                    <div className="tl-body"><div className="tl-text">{pending}</div></div>
-                  </div>
-                )}
-                {sendState === 'running' && (
-                  <div className="tl-working"><span className="live-dot" /> claude is working…</div>
-                )}
-                {sendState === 'error' && <div className="tl-senderror">⚠ {friendlyError(sendError)}</div>}
-                {sendState === 'interrupted' && <div className="tl-senderror tl-interrupted">◼ Interrupted</div>}
-              </>
-            )
-          }}
+          components={virtuosoComponents}
         />
 ```
+
+Before the `return` statement, define the Footer component function outside the render and memoize the components object so Virtuoso gets a stable reference (an inline object literal causes Virtuoso to re-mount the Footer on every parent render):
+
+```jsx
+  function VirtuosoFooter() {
+    return (
+      <>
+        {pending && (
+          <div className="tl-item tl-user tl-pending">
+            <div className="tl-gutter"><span className="tl-label">You</span></div>
+            <div className="tl-body"><div className="tl-text">{pending}</div></div>
+          </div>
+        )}
+        {sendState === 'running' && (
+          <div className="tl-working"><span className="live-dot" /> claude is working…</div>
+        )}
+        {sendState === 'error' && <div className="tl-senderror">⚠ {friendlyError(sendError)}</div>}
+        {sendState === 'interrupted' && <div className="tl-senderror tl-interrupted">◼ Interrupted</div>}
+      </>
+    )
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const virtuosoComponents = useMemo(() => ({ Footer: VirtuosoFooter }), [pending, sendState, sendError])
+```
+
+(`useMemo` must be called unconditionally before the early-return guards, so move it to just after the other hooks, and define `VirtuosoFooter` immediately above it. The deps `[pending, sendState, sendError]` are the only values the Footer reads, so `components` only gets a new reference when those change.)
 
 - [ ] **Step 3: Replace manual scroll helpers with Virtuoso calls**
 
@@ -378,9 +399,11 @@ with:
     setShowJump(false)
     virtuosoRef.current.scrollToIndex({ index: scrollTarget.idx, align: 'center', behavior: 'smooth' })
     setFlashIdx(scrollTarget.idx)
+    const timer = setTimeout(() => setFlashIdx(null), 900)
+    return () => clearTimeout(timer)
 ```
 
-(The `flash` highlight now renders via `itemContent`'s `flash={i===flashIdx}`, which Virtuoso re-renders when `flashIdx` changes.)
+(The `flash` highlight now renders via `itemContent`'s `flash={i===flashIdx}`, which Virtuoso re-renders when `flashIdx` changes. The timer clears the flash after 900 ms; the cleanup prevents stale timers on unmount or re-runs.)
 
 - [ ] **Step 5: CSS — Virtuoso needs a sized scroll container**
 
@@ -432,6 +455,7 @@ Replace `submit()` with:
   const submit = () => {
     const text = draft.trim()
     if ((!text && !attachment) || (!text && attachment === null)) return
+    const display = text || '🖼 (image)'
     let msg = text
     if (attachment) {
       msg = (text ? text + '\n\n' : '') + '[The user attached an image. Read this file to view it: ' + attachment.file + ']'
@@ -439,17 +463,19 @@ Replace `submit()` with:
     setDraft('')
     setAttachment(null)
     if (sendState === 'running') {
-      setQueue((q) => enqueue(q, msg)) // queued; flushed when the turn ends
+      setQueue((q) => enqueue(q, JSON.stringify({ msg, display }))) // queued; flushed when the turn ends
       return
     }
     totalAtSend.current = totalCount
-    setPending(text || '🖼 (image)')
+    setPending(display)
     lastSent.current = msg
     autoFollow.current = true
     setShowJump(false)
     onSend(msg)
   }
 ```
+
+(Storing `{ msg, display }` as JSON in the queue keeps the queue type as string and the reducer pure, while giving the flush path a user-friendly display string.)
 
 - [ ] **Step 2b: Flush the queue when a turn ends; restore draft on error**
 
@@ -466,10 +492,11 @@ Add an effect:
       return
     }
     if (queueSize(queue) > 0 && sendState !== 'error') {
-      const { state, msg } = dequeue(queue)
+      const { state, msg: entry } = dequeue(queue)
+      const { msg, display } = JSON.parse(entry)
       setQueue(state)
       totalAtSend.current = totalCount
-      setPending(msg)
+      setPending(display) // show user-friendly text, not the raw file path
       lastSent.current = msg
       autoFollow.current = true
       onSend(msg)
