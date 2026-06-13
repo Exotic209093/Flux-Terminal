@@ -20,6 +20,8 @@ const { registerAppScheme, serveAppProtocol } = require('./appprotocol')
 const { ClaudeRunner, resolveClaudeBin } = require('./resume')
 const { SessionIndex } = require('./sessionindex')
 const { SearchIndex } = require('./searchindex')
+const { getEnvironment } = require('./environment')
+const { install: installCrashLog } = require('./crashlog')
 
 let mainWindow = null
 let ptyManager = null
@@ -39,6 +41,18 @@ let openSessionId = null // which session the renderer currently has open (for n
 // Must run before app is ready: make app:// a privileged scheme so the built
 // renderer's ES modules load (file:// blocks them by CORS — blank window).
 registerAppScheme(protocol)
+
+// Only one Flux may run: a second launch focuses the existing window instead of
+// opening another that fights over the same ~/.claude watch + GPU cache.
+// (Sub-project #8 will route a flux:// URL out of `argv` here.)
+const gotSingleInstanceLock = app.requestSingleInstanceLock()
+if (!gotSingleInstanceLock) app.quit()
+app.on('second-instance', () => {
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore()
+    mainWindow.focus()
+  }
+})
 
 function createWindow() {
   // Window/taskbar icon. In dev this resolves to the repo's build/icon.ico; in the
@@ -255,6 +269,14 @@ ipcMain.handle('settings:set', (_e, { path, value }) => {
   }
 })
 ipcMain.handle('app:version', () => app.getVersion())
+ipcMain.handle('env:doctor', () => {
+  try {
+    const sessionCount = sessionIndex ? sessionIndex.list(1).length : 0
+    return { ok: true, env: getEnvironment({ sessionCount }) }
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+})
 ipcMain.handle('settings:setNotify', (_e, { key, value }) => {
   try {
     if (!settingsStore) return { ok: false, error: 'not ready' }
@@ -368,6 +390,9 @@ ipcMain.on('live:stop', () => {
 
 // ---- App lifecycle --------------------------------------------------------
 app.whenReady().then(() => {
+  if (!gotSingleInstanceLock) return // a second instance is quitting; do nothing
+  const crashLog = installCrashLog({ app, dialog })
+  ipcMain.on('app:rendererError', (_e, payload) => crashLog.logRendererError(payload))
   serveAppProtocol(protocol, path.join(__dirname, '../renderer'))
   // The renderer never needs HTML5 permissions (camera/mic/geolocation/
   // notifications — the Notifier lives in main); deny requests outright.
