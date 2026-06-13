@@ -11,6 +11,7 @@ import UsageBar from './components/UsageBar'
 import ControlBar from './components/ControlBar'
 import NotificationBell from './components/NotificationBell'
 import ErrorBoundary from './components/ErrorBoundary'
+import WelcomeScreen from './components/WelcomeScreen'
 import { DEFAULT_MODEL, isKnownModel } from './lib/models'
 import ThemeBackground from './components/ThemeBackground'
 import { resolveMotion, prefersReducedMotion } from './lib/appearance'
@@ -40,6 +41,20 @@ export default function App() {
   const model = isKnownModel(settings.appearance.model) ? settings.appearance.model : DEFAULT_MODEL
   const setTheme = (t) => update('appearance.theme', t)
   const setModel = (m) => update('appearance.model', m)
+
+  const showWelcome = !settings.onboarding?.dismissed
+  const dismissWelcome = useCallback(() => update('onboarding.dismissed', true), [update])
+  const welcomeLaunch = useCallback(() => {
+    dismissWelcome()
+    startNewChat()
+  }, [dismissWelcome, startNewChat])
+  const welcomeBrowse = useCallback(async () => {
+    const r = await window.flux.dialog.pickFolder()
+    if (r && r.ok) {
+      dismissWelcome()
+      startNewChat(r.path)
+    }
+  }, [dismissWelcome, startNewChat])
 
   const openFileRef = useRef(null) // the file currently watched, for refresh matching
   const [searchOpen, setSearchOpen] = useState(false)
@@ -139,12 +154,13 @@ export default function App() {
     [openById]
   )
 
-  const startNewChat = useCallback(() => {
+  const startNewChat = useCallback((cwd) => {
+    const dir = typeof cwd === 'string' ? cwd : ''
     setSelected(null)
     setDetail(null)
     setSendState(null)
     setSendError(null)
-    setNewChat({ cwd: '' }) // '' => main defaults to home; user can pick a folder
+    setNewChat({ cwd: dir }) // '' => main defaults to home; user can pick a folder
     setView('session')
   }, [])
 
@@ -345,6 +361,9 @@ export default function App() {
           onOpen={openSearchResult}
           onClose={() => setSearchOpen(false)}
         />
+      )}
+      {showWelcome && (
+        <WelcomeScreen onDismiss={dismissWelcome} onLaunch={welcomeLaunch} onBrowse={welcomeBrowse} />
       )}
     </div>
   )
