@@ -1,0 +1,21 @@
+const { test } = require('node:test')
+const assert = require('node:assert')
+const fs = require('fs')
+const os = require('os')
+const path = require('path')
+const { listSubagents } = require('../src/main/subagents')
+
+test('listSubagents surfaces toolUseId from the subagent meta', () => {
+  const base = path.join(os.tmpdir(), 'flux-sa-' + Date.now() + '-' + Math.random().toString(36).slice(2))
+  fs.mkdirSync(base, { recursive: true })
+  const sessionFile = path.join(base, 'sess.jsonl')
+  fs.writeFileSync(sessionFile, JSON.stringify({ type: 'user', message: { content: 'hi' } }) + '\n')
+  const subDir = path.join(base, 'sess', 'subagents')
+  fs.mkdirSync(subDir, { recursive: true })
+  fs.writeFileSync(path.join(subDir, 'agent-x.jsonl'), JSON.stringify({ type: 'assistant', message: { id: 'm', content: [{ type: 'text', text: 'work' }] } }) + '\n')
+  fs.writeFileSync(path.join(subDir, 'agent-x.meta.json'), JSON.stringify({ agentType: 'general', name: 'helper', description: 'do a thing', toolUseId: 'tool_parent_123' }))
+
+  const list = listSubagents(sessionFile)
+  assert.strictEqual(list.length, 1)
+  assert.strictEqual(list[0].toolUseId, 'tool_parent_123')
+})
