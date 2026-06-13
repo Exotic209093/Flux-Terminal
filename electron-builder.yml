@@ -29,3 +29,7 @@ nsis:
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
   createStartMenuShortcut: true
+publish:
+  provider: github
+  owner: Exotic209093
+  repo: Flux-Terminal

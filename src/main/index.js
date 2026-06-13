@@ -22,6 +22,7 @@ const { SessionIndex } = require('./sessionindex')
 const { SearchIndex } = require('./searchindex')
 const { getEnvironment } = require('./environment')
 const { install: installCrashLog } = require('./crashlog')
+const { initAutoUpdate } = require('./updater')
 
 let mainWindow = null
 let ptyManager = null
@@ -441,6 +442,9 @@ app.whenReady().then(() => {
 
   // Clear badge/flash when the user comes back to the window.
   mainWindow.on('focus', () => notifier && notifier.clear())
+
+  // Check for updates on launch (no-op in dev; packaged builds self-update).
+  initAutoUpdate({ app })
 
   liveTracker = new LiveTracker((snapshot) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
