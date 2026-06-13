@@ -112,6 +112,7 @@ function isRealUserPrompt(o) {
 
 /** Apply one parsed event object to the accumulator (and optional timeline). */
 function applyEvent(o, model, timeline) {
+  const __startLen = timeline ? timeline.length : 0
   model.lineCount++
   if (isErrorRecord(o)) model.errorCount++
   if (o.sessionId && !model.sessionId) model.sessionId = o.sessionId
@@ -170,6 +171,14 @@ function applyEvent(o, model, timeline) {
     default:
       break
   }
+
+  // Conversation-threading ids on every item this record produced (constellation #13).
+  if (timeline) {
+    for (let i = __startLen; i < timeline.length; i++) {
+      if (timeline[i].uuid === undefined) timeline[i].uuid = o.uuid || null
+      if (timeline[i].parentUuid === undefined) timeline[i].parentUuid = o.parentUuid || null
+    }
+  }
 }
 
 /** Walk a message's content blocks: tally counts and (optionally) push timeline items. */
@@ -201,7 +210,7 @@ function walkContent(o, model, timeline, role) {
           model.tools[block.name] = (model.tools[block.name] || 0) + 1
           model.lastTool = block.name
         }
-        if (timeline) timeline.push({ kind: 'tool_use', ts, toolName: block.name || 'tool', toolInput: preview(block.input) })
+        if (timeline) timeline.push({ kind: 'tool_use', ts, id: block.id || null, toolName: block.name || 'tool', toolInput: preview(block.input) })
         break
       case 'image':
         pushImage(block, model, timeline, ts)
