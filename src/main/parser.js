@@ -14,6 +14,7 @@ const fs = require('fs')
 const MAX_TEXT = 6000 // cap per-item text so a huge message can't bloat the UI
 const MAX_IMAGE_B64 = 2_000_000 // ~1.5 MB decoded; bigger images become placeholders
 const MAX_IMAGES = 40 // per parse — a screenshot-heavy session can't bloat the IPC payload
+const MAX_RESULT = 4000 // cap for attached tool results / patches / stdout (IPC payload discipline)
 const STREAM_CHUNK = 1 << 20 // 1 MiB read buffer for the cold/whole-file path
 
 /** Parse one line; return the object or null if it isn't valid JSON yet. */
@@ -108,6 +109,16 @@ function isRealUserPrompt(o) {
   if (typeof content === 'string') return content.trim().length > 0
   if (Array.isArray(content)) return content.length > 0 && !content.some((b) => b && b.type === 'tool_result')
   return false
+}
+
+/** Cap a structuredPatch so a giant diff can't bloat the IPC payload. */
+function capPatch(patch) {
+  try {
+    if (JSON.stringify(patch).length <= MAX_RESULT) return patch
+  } catch {
+    /* fall through */
+  }
+  return { truncated: true }
 }
 
 /** Apply one parsed event object to the accumulator (and optional timeline). */
@@ -228,7 +239,18 @@ function walkContent(o, model, timeline, role) {
                 600
               )
             : preview(block.content)
-          timeline.push({ kind: 'tool_result', ts, isError: !!block.is_error, text })
+          const item = { kind: 'tool_result', ts, isError: !!block.is_error, text }
+          const tur = o.toolUseResult
+          if (tur && typeof tur === 'object') {
+            const result = {}
+            if (Array.isArray(tur.structuredPatch)) result.structuredPatch = capPatch(tur.structuredPatch)
+            const fp = tur.filePath || (tur.file && tur.file.filePath)
+            if (fp) result.filePath = fp
+            if (typeof tur.stdout === 'string') result.stdout = truncate(tur.stdout, MAX_RESULT)
+            if (typeof tur.stderr === 'string') result.stderr = truncate(tur.stderr, MAX_RESULT)
+            if (Object.keys(result).length) item.result = result
+          }
+          timeline.push(item)
         }
         if (inner) {
           for (const b of inner) {

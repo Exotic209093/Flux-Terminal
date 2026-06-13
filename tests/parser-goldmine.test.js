@@ -28,3 +28,28 @@ test('timeline items carry uuid/parentUuid and tool_use carries id', () => {
   assert.strictEqual(tool.parentUuid, 'u1')
   assert.strictEqual(tool.id, 'tool_abc')
 })
+
+test('tool_result items carry capped toolUseResult (structuredPatch + filePath + stdout)', () => {
+  const f = tmp([
+    { type: 'user', uuid: 'u2', toolUseResult: { filePath: 'C:/x/a.txt', structuredPatch: [{ oldStart: 1, lines: ['-old', '+new'] }] },
+      message: { content: [{ type: 'tool_result', content: [{ type: 'text', text: 'edited' }] }] } },
+    { type: 'user', uuid: 'u3', toolUseResult: { stdout: 'line1\nline2' },
+      message: { content: [{ type: 'tool_result', content: [{ type: 'text', text: 'ran' }] }] } }
+  ])
+  const r = parseSessionFile(f, { timeline: true })
+  const results = r.timeline.filter((t) => t.kind === 'tool_result')
+  assert.strictEqual(results[0].result.filePath, 'C:/x/a.txt')
+  assert.ok(Array.isArray(results[0].result.structuredPatch))
+  assert.strictEqual(results[1].result.stdout, 'line1\nline2')
+})
+
+test('an oversized structuredPatch is marked truncated, not inlined whole', () => {
+  const huge = Array.from({ length: 5000 }, (_, i) => ({ line: 'x'.repeat(20), n: i }))
+  const f = tmp([
+    { type: 'user', toolUseResult: { structuredPatch: huge },
+      message: { content: [{ type: 'tool_result', content: [{ type: 'text', text: 'big' }] }] } }
+  ])
+  const r = parseSessionFile(f, { timeline: true })
+  const res = r.timeline.find((t) => t.kind === 'tool_result')
+  assert.strictEqual(res.result.structuredPatch.truncated, true)
+})
