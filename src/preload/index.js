@@ -108,7 +108,11 @@ contextBridge.exposeInMainWorld('flux', {
     setWorkspace: (layout) => ipcRenderer.send('settings:setWorkspace', layout)
   },
   app: {
-    version: () => ipcRenderer.invoke('app:version')
+    version: () => ipcRenderer.invoke('app:version'),
+    reportError: (payload) => ipcRenderer.send('app:rendererError', payload)
+  },
+  env: {
+    doctor: () => ipcRenderer.invoke('env:doctor')
   },
   notify: {
     setOpenSession: (sessionId) => ipcRenderer.send('notify:setOpenSession', sessionId),

@@ -4,6 +4,9 @@
   "description": "A vivid terminal for living and reliving your Claude Code sessions",
   "author": "James Collard",
   "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
   "main": "./out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",

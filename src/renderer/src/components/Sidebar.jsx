@@ -68,8 +68,14 @@ export default function Sidebar({
       <div className="session-list">
         {loading && <div className="hint">Loading sessions…</div>}
         {error && <div className="hint error">⚠ {error}</div>}
-        {!loading && !error && filtered.length === 0 && (
-          <div className="hint">No sessions match “{query}”.</div>
+        {!loading && !error && filtered.length === 0 && !q && (
+          <div className="empty-sessions">
+            <div>No sessions yet.</div>
+            <button className="new-chat-btn" onClick={onNewChat}>+ Launch a claude session</button>
+          </div>
+        )}
+        {!loading && !error && filtered.length === 0 && q && (
+          <div className="hint">No sessions match &ldquo;{query}&rdquo;.</div>
         )}
         {filtered.map((s) => (
           <button

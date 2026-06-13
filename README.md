@@ -167,6 +167,14 @@ scripts/
       synchronous corpus scan that froze live terminals; jumping to a hit in an
       unopened session now actually scrolls to it.
 
+- [x] **Production hardening + onboarding:** single-instance lock (a second
+      launch focuses the running window), a rotating local crash log, app-level
+      + per-view React error boundaries, a guided first-run welcome screen
+      (claude-CLI / login / sessions checks) with a persistent CLI-missing
+      banner, a `pty:spawn` shell allowlist, and streamed cold reads so
+      multi-GB transcripts no longer hit V8's string limit. LICENSE / CHANGELOG
+      / CONTRIBUTING added.
+
 ### Possible next steps
 - Timeline scrubber / playback controls; collapse long thinking blocks
 - Syntax-highlight code in the replay

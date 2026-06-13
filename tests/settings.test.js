@@ -61,9 +61,9 @@ test('muted is a boolean notify key, defaults false, round-trips', () => {
   assert.throws(() => s.setNotify('muted', 'yes')) // must be boolean
 })
 
-test('appearance defaults + version 2', () => {
+test('appearance defaults + version 3', () => {
   const { DEFAULTS } = require('../src/main/settings.js')
-  assert.strictEqual(DEFAULTS.version, 2)
+  assert.strictEqual(DEFAULTS.version, 3)
   assert.deepStrictEqual(DEFAULTS.appearance, { theme: 'midnight', animations: 'auto', model: null })
   assert.strictEqual(DEFAULTS.appearanceMigrated, false)
 })
@@ -101,14 +101,14 @@ test('setByPath routes appearance/notify/appearanceMigrated', (t) => {
   fs.unlinkSync(file)
 })
 
-test('v1 file loads forward to v2 with default appearance', (t) => {
+test('v1 file loads forward to v3 with default appearance', (t) => {
   const os = require('os'); const path = require('path'); const fs = require('fs')
   const { SettingsStore } = require('../src/main/settings.js')
   const file = path.join(os.tmpdir(), 'flux-v1-' + Math.random().toString(36).slice(2) + '.json')
   fs.writeFileSync(file, JSON.stringify({ version: 1, notify: { sound: true } }))
   const s = new SettingsStore(file)
   const d = s.get()
-  assert.strictEqual(d.version, 2)
+  assert.strictEqual(d.version, 3)
   assert.deepStrictEqual(d.appearance, { theme: 'midnight', animations: 'auto', model: null })
   assert.strictEqual(d.notify.sound, true)
   assert.strictEqual(d.appearanceMigrated, false)

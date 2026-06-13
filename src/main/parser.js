@@ -14,6 +14,7 @@ const fs = require('fs')
 const MAX_TEXT = 6000 // cap per-item text so a huge message can't bloat the UI
 const MAX_IMAGE_B64 = 2_000_000 // ~1.5 MB decoded; bigger images become placeholders
 const MAX_IMAGES = 40 // per parse — a screenshot-heavy session can't bloat the IPC payload
+const STREAM_CHUNK = 1 << 20 // 1 MiB read buffer for the cold/whole-file path
 
 /** Parse one line; return the object or null if it isn't valid JSON yet. */
 function parseLine(line) {
@@ -257,35 +258,69 @@ function finalize(model) {
 }
 
 /**
+ * Read a file line-by-line in bounded chunks, never loading it whole — avoids
+ * V8's ~512 MB string cap on multi-GB transcripts. Splitting happens on '\n'
+ * byte boundaries; newline is single-byte ASCII so a partial multibyte
+ * codepoint at a chunk boundary is preserved in `leftover` (a Buffer) and never
+ * bisected. onLine(line, isLast): complete (newline-terminated) lines get
+ * isLast=false; a trailing line with no final newline gets isLast=true. Throws
+ * on open/read error (the caller decides what that means).
+ */
+function streamLinesSync(filePath, onLine, { fsImpl = fs, chunkSize = STREAM_CHUNK } = {}) {
+  const fd = fsImpl.openSync(filePath, 'r')
+  try {
+    const buf = Buffer.alloc(chunkSize)
+    let leftover = Buffer.alloc(0)
+    let bytes
+    while ((bytes = fsImpl.readSync(fd, buf, 0, chunkSize, null)) > 0) {
+      const data = leftover.length ? Buffer.concat([leftover, buf.subarray(0, bytes)]) : Buffer.from(buf.subarray(0, bytes))
+      const lastNl = data.lastIndexOf(0x0a)
+      if (lastNl === -1) {
+        leftover = data
+        continue
+      }
+      const complete = data.subarray(0, lastNl).toString('utf8') // up to, excluding, last '\n'
+      leftover = Buffer.from(data.subarray(lastNl + 1))
+      let start = 0
+      for (let i = 0; i < complete.length; i++) {
+        if (complete.charCodeAt(i) === 10) {
+          onLine(complete.slice(start, i), false)
+          start = i + 1
+        }
+      }
+      onLine(complete.slice(start), false) // last complete line in this batch
+    }
+    if (leftover.length > 0) onLine(leftover.toString('utf8'), true)
+  } finally {
+    fsImpl.closeSync(fd)
+  }
+}
+
+/**
  * Parse a whole session file into a structured summary.
  * Pass { timeline: true } to also collect an ordered list of replay items.
  */
 function parseSessionFile(filePath, opts = {}) {
   const collectTimeline = !!opts.timeline
-  let raw = ''
+  const timeline = collectTimeline ? [] : null
+  const model = freshModel(filePath)
   try {
-    raw = fs.readFileSync(filePath, 'utf-8')
+    streamLinesSync(filePath, (line, isLast) => {
+      if (!line.trim()) return
+      const o = parseLine(line)
+      if (!o) {
+        // A truncated/half-written final line is expected; only complete
+        // (newline-terminated) bad lines are real parse errors.
+        if (!isLast) model.parseErrors++
+        return
+      }
+      applyEvent(o, model, timeline)
+    })
   } catch (err) {
     return { ok: false, error: err.message, file: filePath }
   }
-
-  const timeline = collectTimeline ? [] : null
-  const model = freshModel(filePath)
-  const lines = raw.split('\n')
-
-  lines.forEach((line, idx) => {
-    if (!line.trim()) return
-    const o = parseLine(line)
-    if (!o) {
-      // A truncated final line while the file is being written is expected.
-      if (idx !== lines.length - 1) model.parseErrors++
-      return
-    }
-    applyEvent(o, model, timeline)
-  })
-
   if (timeline) model.timeline = timeline
   return finalize(model)
 }
 
-module.exports = { parseSessionFile, parseLine, freshModel, applyEvent, finalize, isErrorRecord, isRealUserPrompt }
+module.exports = { parseSessionFile, streamLinesSync, parseLine, freshModel, applyEvent, finalize, isErrorRecord, isRealUserPrompt }

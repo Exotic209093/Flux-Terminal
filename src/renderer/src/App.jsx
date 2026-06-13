@@ -10,6 +10,8 @@ import SearchOverlay from './components/SearchOverlay'
 import UsageBar from './components/UsageBar'
 import ControlBar from './components/ControlBar'
 import NotificationBell from './components/NotificationBell'
+import ErrorBoundary from './components/ErrorBoundary'
+import WelcomeScreen from './components/WelcomeScreen'
 import { DEFAULT_MODEL, isKnownModel } from './lib/models'
 import ThemeBackground from './components/ThemeBackground'
 import { resolveMotion, prefersReducedMotion } from './lib/appearance'
@@ -46,6 +48,11 @@ export default function App() {
 
   const [live, setLive] = useState(null)
   useEffect(() => window.flux.live.onUpdate(setLive), [])
+
+  const [doctor, setDoctor] = useState(null)
+  useEffect(() => {
+    window.flux.env.doctor().then((r) => setDoctor(r && r.ok ? r.env : null))
+  }, [])
 
   // Ctrl+Shift+F opens the search overlay from anywhere in the app
   useEffect(() => {
@@ -138,14 +145,31 @@ export default function App() {
     [openById]
   )
 
-  const startNewChat = useCallback(() => {
+  // startNewChat must be defined before the welcome handlers that reference it
+  // in their useCallback dependency arrays to avoid a TDZ ReferenceError.
+  const startNewChat = useCallback((cwd) => {
+    const dir = typeof cwd === 'string' ? cwd : ''
     setSelected(null)
     setDetail(null)
     setSendState(null)
     setSendError(null)
-    setNewChat({ cwd: '' }) // '' => main defaults to home; user can pick a folder
+    setNewChat({ cwd: dir }) // '' => main defaults to home; user can pick a folder
     setView('session')
   }, [])
+
+  const showWelcome = !settings.onboarding?.dismissed
+  const dismissWelcome = useCallback(() => update('onboarding.dismissed', true), [update])
+  const welcomeLaunch = useCallback(() => {
+    dismissWelcome()
+    startNewChat()
+  }, [dismissWelcome, startNewChat])
+  const welcomeBrowse = useCallback(async () => {
+    const r = await window.flux.dialog.pickFolder()
+    if (r && r.ok) {
+      dismissWelcome()
+      startNewChat(r.path)
+    }
+  }, [dismissWelcome, startNewChat])
 
   const sendNewChat = useCallback(
     (message) => {
@@ -245,6 +269,11 @@ export default function App() {
         onNewChat={startNewChat}
       />
       <main className="main-pane">
+        {doctor && !doctor.cli.found && (
+          <div className="cli-banner">
+            claude CLI not found on PATH. Install: <code>npm install -g @anthropic-ai/claude-code</code>, then restart Flux.
+          </div>
+        )}
         <div className="topbar">
           <button
             className={'tab' + (view === 'terminal' ? ' active' : '')}
@@ -297,43 +326,45 @@ export default function App() {
         <div className="pane-slot" style={{ display: view === 'terminal' ? 'flex' : 'none' }}>
           <TerminalWorkspace theme={theme} onActivePty={setActivePtyId} />
         </div>
-        {view === 'session' && (
-          <div className="pane-slot">
-            <SessionView
-              detail={detail}
-              loading={loadingDetail}
-              sendState={sendState}
-              sendError={sendError}
-              onSend={newChat ? sendNewChat : sendMessage}
-              newChat={newChat}
-              scrollTarget={scrollTarget}
-              onPickFolder={async () => {
-                const r = await window.flux.dialog.pickFolder()
-                if (r.ok) setNewChat((nc) => ({ ...(nc || {}), cwd: r.path }))
-              }}
-            />
-          </div>
-        )}
-        {view === 'stats' && (
-          <div className="pane-slot">
-            <StatsView sessions={sessions} loading={sessionsLoading} />
-          </div>
-        )}
-        {view === 'skills' && (
-          <div className="pane-slot">
-            <SkillsView />
-          </div>
-        )}
-        {view === 'mission' && (
-          <div className="pane-slot">
-            <MissionControl onOpenCard={openCard} />
-          </div>
-        )}
-        {view === 'settings' && (
-          <div className="pane-slot">
-            <SettingsPage />
-          </div>
-        )}
+        <ErrorBoundary key={view} inline title="This view failed to render">
+          {view === 'session' && (
+            <div className="pane-slot">
+              <SessionView
+                detail={detail}
+                loading={loadingDetail}
+                sendState={sendState}
+                sendError={sendError}
+                onSend={newChat ? sendNewChat : sendMessage}
+                newChat={newChat}
+                scrollTarget={scrollTarget}
+                onPickFolder={async () => {
+                  const r = await window.flux.dialog.pickFolder()
+                  if (r.ok) setNewChat((nc) => ({ ...(nc || {}), cwd: r.path }))
+                }}
+              />
+            </div>
+          )}
+          {view === 'stats' && (
+            <div className="pane-slot">
+              <StatsView sessions={sessions} loading={sessionsLoading} />
+            </div>
+          )}
+          {view === 'skills' && (
+            <div className="pane-slot">
+              <SkillsView />
+            </div>
+          )}
+          {view === 'mission' && (
+            <div className="pane-slot">
+              <MissionControl onOpenCard={openCard} />
+            </div>
+          )}
+          {view === 'settings' && (
+            <div className="pane-slot">
+              <SettingsPage />
+            </div>
+          )}
+        </ErrorBoundary>
       </main>
 
       {searchOpen && (
@@ -342,6 +373,9 @@ export default function App() {
           onOpen={openSearchResult}
           onClose={() => setSearchOpen(false)}
         />
+      )}
+      {showWelcome && (
+        <WelcomeScreen onDismiss={dismissWelcome} onLaunch={welcomeLaunch} onBrowse={welcomeBrowse} />
       )}
     </div>
   )

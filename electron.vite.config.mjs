@@ -37,7 +37,9 @@ export default defineConfig({
           resume: resolve('src/main/resume.js'),
           tailer: resolve('src/main/tailer.js'),
           sessionindex: resolve('src/main/sessionindex.js'),
-          searchindex: resolve('src/main/searchindex.js')
+          searchindex: resolve('src/main/searchindex.js'),
+          environment: resolve('src/main/environment.js'),
+          crashlog: resolve('src/main/crashlog.js')
         },
         output: {
           entryFileNames: '[name].js'
