@@ -462,6 +462,15 @@ app.whenReady().then(() => {
     getOpenSessionId: () => openSessionId,
     NotificationImpl: Notification,
     beep: () => require('electron').shell.beep(),
+    httpPost: (url, msg) => {
+      // Best-effort ntfy/webhook push on needs-you events. fetch is global in
+      // Electron's main process; failures are swallowed (push is non-critical).
+      try {
+        fetch(url, { method: 'POST', body: (msg && msg.body) || '', headers: { Title: (msg && msg.title) || 'Flux', Tags: 'warning' } }).catch(() => {})
+      } catch {
+        /* ignore */
+      }
+    },
     onHistory: (entry) => emit('notify:history-add', entry)
   })
 
