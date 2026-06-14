@@ -140,8 +140,8 @@ function createWindow() {
 }
 
 // ---- PTY bridge (id-keyed; one pane === one pty) --------------------------
-ipcMain.handle('pty:spawn', (_e, { id, cols, rows, cwd, shell }) => {
-  const p = ptyManager ? ptyManager.spawn(id, { cols, rows, cwd, shell }) : null
+ipcMain.handle('pty:spawn', (_e, { id, cols, rows, cwd, shell, args }) => {
+  const p = ptyManager ? ptyManager.spawn(id, { cols, rows, cwd, shell, args }) : null
   return p
     ? { ok: true, id }
     : { ok: false, id, error: (ptyManager && ptyManager.lastSpawnError) || 'failed to start terminal' }

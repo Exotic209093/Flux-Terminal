@@ -28,12 +28,21 @@ function isAllowedShell(shell) {
 }
 
 /**
+ * Validate and sanitise a renderer-supplied args array. Drops non-strings,
+ * caps at 32 entries so a runaway profile can't DoS the pty spawn.
+ */
+function validArgs(args) {
+  if (!Array.isArray(args)) return []
+  return args.filter((a) => typeof a === 'string').slice(0, 32)
+}
+
+/**
  * Spawn a real pseudo-terminal. On Windows this uses ConPTY under the hood,
  * which is what full-screen TUIs like `claude` need to render and resize cleanly.
  */
-function createPty({ cols = 80, rows = 30, cwd, shell } = {}) {
+function createPty({ cols = 80, rows = 30, cwd, shell, args } = {}) {
   if (!isAllowedShell(shell)) throw new Error('shell not allowed: ' + shell)
-  return pty.spawn(shell || defaultShell(), [], {
+  return pty.spawn(shell || defaultShell(), validArgs(args), {
     name: 'xterm-256color',
     cols,
     rows,
@@ -42,4 +51,4 @@ function createPty({ cols = 80, rows = 30, cwd, shell } = {}) {
   })
 }
 
-module.exports = { createPty, defaultShell, isAllowedShell }
+module.exports = { createPty, defaultShell, isAllowedShell, validArgs }
