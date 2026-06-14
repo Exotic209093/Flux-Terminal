@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, Notification, nativeImage, protocol, session } = require('electron')
+const { app, BrowserWindow, ipcMain, dialog, Notification, nativeImage, protocol, session, Tray, Menu } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const os = require('os')
@@ -24,12 +24,15 @@ const { getEnvironment } = require('./environment')
 const { install: installCrashLog } = require('./crashlog')
 const { initAutoUpdate } = require('./updater')
 const { findDeepLink, parseDeepLink } = require('./deeplink')
+const { createTray } = require('./tray')
 
 let mainWindow = null
 let ptyManager = null
 let liveTracker = null
 let usagePoller = null
 let claudeRunner = null
+let isQuitting = false
+let tray = null
 
 // Prompt library — path is set in whenReady once app.getPath() is available.
 let promptStore = null
@@ -73,6 +76,8 @@ app.on('open-url', (e, url) => {
   if (route) emit('deeplink:open', route)
 })
 
+app.on('before-quit', () => { isQuitting = true })
+
 function createWindow() {
   // Window/taskbar icon. In dev this resolves to the repo's build/icon.ico; in the
   // packaged app build/ isn't bundled (it's buildResources), so this is undefined and
@@ -113,6 +118,15 @@ function createWindow() {
     const dev = process.env['ELECTRON_RENDERER_URL']
     const allowed = url.startsWith('app://') || (dev && url.startsWith(dev))
     if (!allowed) e.preventDefault()
+  })
+
+  // Close-to-tray: hide the window instead of closing if the user enabled the
+  // setting and the app is not already quitting (e.g. via tray Quit or OS shutdown).
+  mainWindow.on('close', (e) => {
+    if (!isQuitting && settingsStore && settingsStore.get().tray.closeToTray) {
+      e.preventDefault()
+      mainWindow.hide()
+    }
   })
 
   // electron-vite sets ELECTRON_RENDERER_URL in dev (Vite dev server w/ HMR);
@@ -429,6 +443,15 @@ app.whenReady().then(() => {
   if (launchRoute && mainWindow) {
     mainWindow.webContents.once('did-finish-load', () => emit('deeplink:open', launchRoute))
   }
+
+  // System tray — always present so the app is reachable even when close-to-tray hides the window.
+  const iconPath = path.join(__dirname, '../../build/icon.ico')
+  tray = createTray({
+    Tray, Menu, nativeImage,
+    getWindow: () => mainWindow,
+    onQuit: () => { isQuitting = true; app.quit() },
+    iconPath: fs.existsSync(iconPath) ? iconPath : null
+  })
 
   promptStore = new PromptStore(path.join(app.getPath('userData'), 'prompts.json'))
   promptStore.seed()
