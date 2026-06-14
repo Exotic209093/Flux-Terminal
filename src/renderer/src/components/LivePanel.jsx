@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { formatTokens, totalTokens, modelLabel } from '../lib/format'
 import { estimateCost, formatUSD } from '../lib/pricing'
+import Odometer from './Odometer'
 
 // Docked atop the Terminal view. Launches a tracked `claude` (exact session-id
 // correlation) and shows its stats updating live as you work.
@@ -50,7 +51,7 @@ export default function LivePanel({ onLaunch }) {
       </span>
       {live.models[0] && <span className="live-model">{modelLabel(live.models[0])}</span>}
       <Metric v={formatTokens(tok)} l="tokens" />
-      <Metric v={formatUSD(cost.total)} l="cost" accent />
+      <Metric v={<Odometer value={cost.total} />} l="cost" accent />
       <Metric v={live.counts.total} l="msgs" />
       <Metric v={live.counts.toolUse} l="tools" />
       <Metric v={cachePct + '%'} l="cache" />
