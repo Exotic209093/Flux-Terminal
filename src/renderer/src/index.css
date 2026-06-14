@@ -1865,6 +1865,11 @@ html[data-anim="on"] .stats-view,
 html[data-anim="on"] .skills-view,
 html[data-anim="on"] .mission { background: transparent; }
 
+/* The terminal host must also be transparent so the canvas at z-index:-1 isn't
+   occluded by its default opaque background. xterm's allowTransparency + rgba
+   theme.background handles the terminal layer itself. */
+html[data-anim="on"] .terminal-host { background: transparent; }
+
 /* Faint scrim on scrollable content areas so text stays readable over motion. */
 html[data-anim="on"] .sv-timeline,
 html[data-anim="on"] .stats-view,
