@@ -8,6 +8,7 @@ const path = require('path')
 const MODES = ['toast', 'badge', 'off']
 const EVENT_KEYS = ['turnFinished', 'turnError', 'blocked', 'usageThreshold']
 const ANIM_MODES = ['auto', 'on', 'off']
+const INTENSITY = ['subtle', 'balanced', 'bold']
 
 const DEFAULT_PROFILES = [
   { id: 'powershell', name: 'PowerShell (here)', shell: null, args: [], cwd: null },
@@ -16,7 +17,7 @@ const DEFAULT_PROFILES = [
 
 const DEFAULTS = {
   version: 3,
-  appearance: { theme: 'midnight', animations: 'auto', model: null },
+  appearance: { theme: 'midnight', animations: 'auto', model: null, intensity: 'balanced' },
   notify: {
     turnFinished: 'badge',
     turnError: 'toast',
@@ -69,6 +70,7 @@ class SettingsStore {
         if (typeof a.theme === 'string' && a.theme) this.data.appearance.theme = a.theme
         if (ANIM_MODES.includes(a.animations)) this.data.appearance.animations = a.animations
         if (typeof a.model === 'string' || a.model === null) this.data.appearance.model = a.model
+        if (INTENSITY.includes(a.intensity)) this.data.appearance.intensity = a.intensity
       }
       if (typeof parsed.appearanceMigrated === 'boolean') this.data.appearanceMigrated = parsed.appearanceMigrated
       if (parsed.onboarding && typeof parsed.onboarding === 'object') {
@@ -129,6 +131,9 @@ class SettingsStore {
     } else if (key === 'model') {
       if (value !== null && (typeof value !== 'string' || !value)) throw new Error('model must be a non-empty string or null')
       this.data.appearance.model = value
+    } else if (key === 'intensity') {
+      if (!INTENSITY.includes(value)) throw new Error('invalid intensity: ' + value)
+      this.data.appearance.intensity = value
     } else {
       throw new Error('unknown appearance key: ' + key)
     }
@@ -219,4 +224,4 @@ class SettingsStore {
   }
 }
 
-module.exports = { SettingsStore, DEFAULTS, MODES, EVENT_KEYS, DEFAULT_PROFILES, ANIM_MODES }
+module.exports = { SettingsStore, DEFAULTS, MODES, EVENT_KEYS, DEFAULT_PROFILES, ANIM_MODES, INTENSITY }
