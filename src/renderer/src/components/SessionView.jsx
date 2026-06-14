@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { formatTokens, totalTokens, modelLabel, modelContext, projectName } from '../lib/format'
 import { estimateCost, formatUSD } from '../lib/pricing'
 import { insertTemplate, nextPlaceholderRange } from '../lib/templates'
+import { emptyQueue, enqueue, dequeue, size as queueSize } from '../lib/composerQueue'
 import UsageBar from './UsageBar'
 import SlashMenu from './SlashMenu'
 import PromptMenu from './PromptMenu'
@@ -42,6 +43,8 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
   const [prompts, setPrompts] = useState([])
   const [promptIndex, setPromptIndex] = useState(0)
   const [promptDismissed, setPromptDismissed] = useState(false)
+  const [queue, setQueue] = useState(emptyQueue())
+  const lastSent = useRef(null)
   const composerRef = useRef(null)
   const [lightbox, setLightbox] = useState(null)
   const [attachment, setAttachment] = useState(null) // { file, name }
@@ -228,21 +231,46 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
 
   const submit = () => {
     const text = draft.trim()
-    if ((!text && !attachment) || sendState === 'running') return
+    if (!text && !attachment) return
+    const display = text || '🖼 (image)'
     let msg = text
     if (attachment) {
-      msg =
-        (text ? text + '\n\n' : '') +
-        '[The user attached an image. Read this file to view it: ' + attachment.file + ']'
+      msg = (text ? text + '\n\n' : '') + '[The user attached an image. Read this file to view it: ' + attachment.file + ']'
     }
-    totalAtSend.current = totalCount
-    setPending(text || '🖼 (image)')
     setDraft('')
     setAttachment(null)
+    if (sendState === 'running') {
+      setQueue((q) => enqueue(q, JSON.stringify({ msg, display }))) // queued; flushed when the turn ends
+      return
+    }
+    totalAtSend.current = totalCount
+    setPending(display)
+    lastSent.current = msg
     autoFollow.current = true
     setShowJump(false)
     onSend(msg)
   }
+
+  // When a turn finishes, send the next queued message. On error, put the failed
+  // message back in the composer instead of losing it.
+  useEffect(() => {
+    if (sendState === 'running') return
+    if (sendState === 'error' && lastSent.current && !draft.trim()) {
+      setDraft(lastSent.current)
+      lastSent.current = null
+      return
+    }
+    if (queueSize(queue) > 0 && sendState !== 'error') {
+      const { state, msg: entry } = dequeue(queue)
+      const { msg, display } = JSON.parse(entry)
+      setQueue(state)
+      totalAtSend.current = totalCount
+      setPending(display) // show user-friendly text, not the raw file path
+      lastSent.current = msg
+      autoFollow.current = true
+      onSend(msg)
+    }
+  }, [sendState]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const onKeyDown = (e) => {
     if (slashItems.length) {
@@ -368,6 +396,7 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
           onKeyDown={onKeyDown}
           onSubmit={submit}
           sendState={sendState}
+          queued={queueSize(queue)}
           slashItems={slashItems}
           slashSel={slashSel}
           completeSlash={completeSlash}
@@ -464,6 +493,7 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
         onKeyDown={onKeyDown}
         onSubmit={submit}
         sendState={sendState}
+        queued={queueSize(queue)}
         slashItems={slashItems}
         slashSel={slashSel}
         completeSlash={completeSlash}
@@ -491,14 +521,13 @@ function Stat({ label, value, accent }) {
   )
 }
 
-function Composer({ composerRef, draft, setDraft, onKeyDown, onSubmit, sendState, slashItems, slashSel, completeSlash, slashHint, promptItems, promptSel, completePrompt, attachment, setAttachment, fileInputRef, stashImage, onPaste }) {
+function Composer({ composerRef, draft, setDraft, onKeyDown, onSubmit, sendState, queued, slashItems, slashSel, completeSlash, slashHint, promptItems, promptSel, completePrompt, attachment, setAttachment, fileInputRef, stashImage, onPaste }) {
   return (
     <div className="sv-composer">
       <button
         className="composer-attach"
         title="Attach image"
         onClick={() => fileInputRef.current && fileInputRef.current.click()}
-        disabled={sendState === 'running'}
       >
         📎
       </button>
@@ -522,6 +551,7 @@ function Composer({ composerRef, draft, setDraft, onKeyDown, onSubmit, sendState
             </button>
           </div>
         )}
+        {queued > 0 && <div className="composer-queued">{queued} queued</div>}
         {slashHint && <div className="slash-hint">{slashHint}</div>}
         {slashItems.length > 0 && (
           <SlashMenu items={slashItems} selected={slashSel} onPick={completeSlash} />
@@ -538,7 +568,6 @@ function Composer({ composerRef, draft, setDraft, onKeyDown, onSubmit, sendState
           onKeyDown={onKeyDown}
           onPaste={onPaste}
           rows={1}
-          disabled={sendState === 'running'}
         />
       </div>
       {sendState === 'running' ? (

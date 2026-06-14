@@ -2035,3 +2035,6 @@ html[data-theme="matrix"] .theme-bg { background: #050a05; }
 .tl-ts { color: var(--text-faint); font-size: 10px; margin-left: 6px; }
 .tl-thinking-toggle { background: none; border: none; color: var(--text-faint); cursor: pointer; font-size: 12px; padding: 0; }
 .tl-thinking { font-style: normal; }
+
+/* ---- Never-blocking composer: queued-send indicator -------------------- */
+.composer-queued { font-size: 11px; color: var(--text-faint); padding: 2px 4px; }
