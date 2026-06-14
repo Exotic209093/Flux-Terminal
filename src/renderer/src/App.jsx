@@ -7,6 +7,8 @@ import SkillsView from './components/SkillsView'
 import MissionControl from './components/MissionControl'
 import SettingsPage from './components/SettingsPage'
 import SearchOverlay from './components/SearchOverlay'
+import CommandPalette from './components/CommandPalette'
+import { buildCommands } from './lib/palette'
 import UsageBar from './components/UsageBar'
 import ControlBar from './components/ControlBar'
 import NotificationBell from './components/NotificationBell'
@@ -45,6 +47,8 @@ export default function App() {
   const openFileRef = useRef(null) // the file currently watched, for refresh matching
   const [searchOpen, setSearchOpen] = useState(false)
   const [scrollTarget, setScrollTarget] = useState(null) // { idx, key, sessionId }
+  const [paletteOpen, setPaletteOpen] = useState(false)
+  const [prompts, setPrompts] = useState([])
 
   const [live, setLive] = useState(null)
   useEffect(() => window.flux.live.onUpdate(setLive), [])
@@ -52,6 +56,10 @@ export default function App() {
   const [doctor, setDoctor] = useState(null)
   useEffect(() => {
     window.flux.env.doctor().then((r) => setDoctor(r && r.ok ? r.env : null))
+  }, [])
+
+  useEffect(() => {
+    window.flux.prompts.list().then((r) => { if (r && r.ok) setPrompts(r.prompts) })
   }, [])
 
   // Ctrl+Shift+F opens the search overlay from anywhere in the app
@@ -66,6 +74,9 @@ export default function App() {
       } else if (e.ctrlKey && !e.shiftKey && e.key === ',') {
         e.preventDefault()
         setView((v) => (v === 'settings' ? 'terminal' : 'settings'))
+      } else if (e.ctrlKey && !e.shiftKey && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault()
+        setPaletteOpen((o) => !o)
       }
     }
     window.addEventListener('keydown', onKey)
@@ -135,6 +146,22 @@ export default function App() {
 
   const openCard = useCallback((card) => openById(card.sessionId, card), [openById])
 
+  const runCommand = useCallback(
+    (item) => {
+      setPaletteOpen(false)
+      if (item.kind === 'session') return openById(item.sessionId)
+      if (item.kind === 'prompt') return startNewChat('', item.body)
+      switch (item.action) {
+        case 'new-chat': return startNewChat()
+        case 'open-search': return setSearchOpen(true)
+        case 'launch-tracked': return setView('terminal')
+        default:
+          if (item.action && item.action.startsWith('view:')) setView(item.action.slice(5))
+      }
+    },
+    [openById, startNewChat]
+  )
+
   const openSearchResult = useCallback(
     (sessionId, file, msgIdx) => {
       openById(sessionId, { file })
@@ -147,13 +174,13 @@ export default function App() {
 
   // startNewChat must be defined before the welcome handlers that reference it
   // in their useCallback dependency arrays to avoid a TDZ ReferenceError.
-  const startNewChat = useCallback((cwd) => {
+  const startNewChat = useCallback((cwd, initialDraft) => {
     const dir = typeof cwd === 'string' ? cwd : ''
     setSelected(null)
     setDetail(null)
     setSendState(null)
     setSendError(null)
-    setNewChat({ cwd: dir }) // '' => main defaults to home; user can pick a folder
+    setNewChat({ cwd: dir, draft: typeof initialDraft === 'string' ? initialDraft : '' })
     setView('session')
   }, [])
 
@@ -376,6 +403,9 @@ export default function App() {
       )}
       {showWelcome && (
         <WelcomeScreen onDismiss={dismissWelcome} onLaunch={welcomeLaunch} onBrowse={welcomeBrowse} />
+      )}
+      {paletteOpen && (
+        <CommandPalette commands={buildCommands({ sessions, prompts })} onRun={runCommand} onClose={() => setPaletteOpen(false)} />
       )}
     </div>
   )
