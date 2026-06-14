@@ -576,6 +576,7 @@ body,
 .sv-timeline {
   flex: 1;
   min-height: 0;
+  padding: 12px 20px 24px;
 }
 .jump-latest {
   position: absolute;

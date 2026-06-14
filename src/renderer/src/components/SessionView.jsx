@@ -29,7 +29,6 @@ function friendlyError(err) {
 }
 
 export default function SessionView({ detail, loading, sendState, sendError, onSend, newChat, onPickFolder, scrollTarget }) {
-  const scrollRef = useRef(null)
   const virtuosoRef = useRef(null)
   const autoFollow = useRef(true)
   const [showJump, setShowJump] = useState(false)
