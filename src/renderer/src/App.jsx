@@ -324,7 +324,7 @@ export default function App() {
 
         {/* Terminal stays mounted; just hidden when not active. */}
         <div className="pane-slot" style={{ display: view === 'terminal' ? 'flex' : 'none' }}>
-          <TerminalWorkspace theme={theme} onActivePty={setActivePtyId} />
+          <TerminalWorkspace theme={theme} active={view === 'terminal'} onActivePty={setActivePtyId} />
         </div>
         <ErrorBoundary key={view} inline title="This view failed to render">
           {view === 'session' && (
