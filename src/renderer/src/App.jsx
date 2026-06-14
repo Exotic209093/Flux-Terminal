@@ -293,8 +293,9 @@ export default function App() {
     return window.flux.deeplink.onOpen((route) => {
       if (route.route === 'session') openById(route.sessionId)
       else if (route.route === 'mission') setView('mission')
+      else if (route.route === 'new') startNewChat()
     })
-  }, [openById])
+  }, [openById, startNewChat])
 
   return (
     <div className="app-shell">

@@ -43,7 +43,8 @@ export default defineConfig({
           updater: resolve('src/main/updater.js'),
           deeplink: resolve('src/main/deeplink.js'),
           tray: resolve('src/main/tray.js'),
-          shellio: resolve('src/main/shellio.js')
+          shellio: resolve('src/main/shellio.js'),
+          winshell: resolve('src/main/winshell.js')
         },
         output: {
           entryFileNames: '[name].js'

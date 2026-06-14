@@ -15,6 +15,7 @@ function parseDeepLink(url) {
     return UUID_RE.test(id) ? { route: 'session', sessionId: id } : null
   }
   if (host === 'mission') return { route: 'mission' }
+  if (host === 'new') return { route: 'new' }
   return null
 }
 
