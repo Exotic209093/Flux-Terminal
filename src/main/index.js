@@ -23,6 +23,7 @@ const { SearchIndex } = require('./searchindex')
 const { getEnvironment } = require('./environment')
 const { install: installCrashLog } = require('./crashlog')
 const { initAutoUpdate } = require('./updater')
+const { findDeepLink, parseDeepLink } = require('./deeplink')
 
 let mainWindow = null
 let ptyManager = null
@@ -45,14 +46,31 @@ registerAppScheme(protocol)
 
 // Only one Flux may run: a second launch focuses the existing window instead of
 // opening another that fights over the same ~/.claude watch + GPU cache.
-// (Sub-project #8 will route a flux:// URL out of `argv` here.)
 const gotSingleInstanceLock = app.requestSingleInstanceLock()
 if (!gotSingleInstanceLock) app.quit()
-app.on('second-instance', () => {
+app.on('second-instance', (_event, argv) => {
   if (mainWindow) {
     if (mainWindow.isMinimized()) mainWindow.restore()
+    mainWindow.show()
     mainWindow.focus()
   }
+  const route = findDeepLink(argv)
+  if (route) emit('deeplink:open', route)
+})
+
+// Register flux:// as the default protocol client so OS routes
+// flux://session/<uuid> and flux://mission URLs to this app.
+if (process.defaultApp) {
+  if (process.argv.length >= 2) app.setAsDefaultProtocolClient('flux', process.execPath, [path.resolve(process.argv[1])])
+} else {
+  app.setAsDefaultProtocolClient('flux')
+}
+
+// macOS delivers URLs via open-url (harmless no-op on Windows).
+app.on('open-url', (e, url) => {
+  e.preventDefault()
+  const route = parseDeepLink(url)
+  if (route) emit('deeplink:open', route)
 })
 
 function createWindow() {
@@ -404,6 +422,14 @@ app.whenReady().then(() => {
   session.defaultSession.setPermissionRequestHandler((_wc, _permission, callback) => callback(false))
   settingsStore = new SettingsStore(path.join(app.getPath('userData'), 'settings.json'))
   createWindow()
+
+  // Cold-start: if the app was launched via a flux:// URL, route it once the
+  // renderer finishes loading.
+  const launchRoute = findDeepLink(process.argv)
+  if (launchRoute && mainWindow) {
+    mainWindow.webContents.once('did-finish-load', () => emit('deeplink:open', launchRoute))
+  }
+
   promptStore = new PromptStore(path.join(app.getPath('userData'), 'prompts.json'))
   promptStore.seed()
 
