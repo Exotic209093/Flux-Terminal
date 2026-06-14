@@ -291,7 +291,7 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <ThemeBackground theme={theme} animated={animated} />
+      <ThemeBackground theme={theme} animated={animated} live={live} />
       <Sidebar
         sessions={sessions}
         loading={sessionsLoading}
