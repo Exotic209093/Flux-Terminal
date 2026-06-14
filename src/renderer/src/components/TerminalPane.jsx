@@ -36,6 +36,17 @@ export default function TerminalPane({ ptyId, theme, cwd, shell, initialInput, o
     term.open(hostRef.current)
     fit.fit()
 
+    // Don't send app-level shortcuts into the shell — the workspace keydown
+    // handler (or App.jsx) owns these combos.
+    term.attachCustomKeyEventHandler((e) => {
+      if (e.type !== 'keydown') return true
+      if (e.altKey && /^Arrow/.test(e.key)) return false
+      if (e.ctrlKey && e.shiftKey && /^[eEoO]$/.test(e.key)) return false
+      if (e.ctrlKey && !e.shiftKey && /^[tTwW]$/.test(e.key)) return false
+      if (e.ctrlKey && e.key === 'Tab') return false
+      return true
+    })
+
     let cancelled = false
     window.flux.pty.spawn({ id: ptyId, cols: term.cols, rows: term.rows, cwd, shell }).then(() => {
       if (cancelled) return

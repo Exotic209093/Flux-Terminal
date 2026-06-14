@@ -13,7 +13,7 @@ function freshSeed() {
 
 // Owns the tab/pane workspace. Task 4: tabs (one pane each). Hosts the docked
 // LivePanel; "launch tracked claude" opens a tab and writes into its PTY.
-export default function TerminalWorkspace({ theme, onActivePty }) {
+export default function TerminalWorkspace({ theme, onActivePty, active }) {
   const [state, dispatch] = useReducer(reducer, undefined, () => initialState(freshSeed()))
   const pendingInput = useRef({})
   const pendingSpawn = useRef({}) // ptyId -> { cwd, shell }
@@ -85,6 +85,7 @@ export default function TerminalWorkspace({ theme, onActivePty }) {
 
   useEffect(() => {
     const onKey = (e) => {
+      if (!active) return
       if (e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
         if (activeTab && activeTab.panes.length === 2) {
           e.preventDefault()
@@ -100,12 +101,12 @@ export default function TerminalWorkspace({ theme, onActivePty }) {
       else if (e.key === 't' || e.key === 'T') { e.preventDefault(); newTab() }
       else if (e.key === 'w' || e.key === 'W') {
         e.preventDefault()
-        if (activeTab) { if (window.confirm('Close this tab? Its shell will be terminated.')) closeTab(activeTab.id) }
+        if (activeTab) closeTab(activeTab.id)
       } else if (e.key === 'Tab') { e.preventDefault(); dispatch({ type: 'NEXT_TAB' }) }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [newTab, closeTab, activeTab, splitActive])
+  }, [newTab, closeTab, activeTab, splitActive, active])
 
   // Restore the saved tab layout once on mount. Tabs reopen as FRESH shells in
   // their saved profile's cwd; tracked-claude tabs restore as a plain shell.
