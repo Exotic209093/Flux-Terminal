@@ -136,3 +136,15 @@ Terminal power-user QoL, 320 tests. `shellio.js` guards (isAllowedExternalUrl ht
 Visual reactivity + ambient, 324 tests. `lib/reactivity.js` (tokensPerSecFrom, reactiveSpeed); scene-engine `setReactivity` + `draw(t,dim,reactivity)`; 4 scenes react defensively (matrix speed∝tokens/sec, aurora/synthwave flare, nebula shooting rate); ThemeBackground feeds live tokens/sec + error flare + sets `--pulse`; `Odometer.jsx` animated cost in LivePanel; `lib/audio.js` WebAudio cues + `settings.audio.enabled` + App triggers via notify.onHistoryAdd + AppearanceSection toggle. Deferred: always-on-top HUD, screensaver. Minor parked: `--pulse` var set but no CSS rule reads it yet (inert flourish); Odometer mid-tween jump; dead formatUSD import in LivePanel.
 
 **11/13 shipped. Next: #12 Windows Shell Integration (S), then #13 Archaeology Suite (XL).**
+
+## Sub-project #12 — shipped 2026-06-14 (merged + pushed)
+
+Windows shell integration, 326 tests. `winshell.js` (progressForState/applyProgress/installJumpList/installThumbar, all win32-guarded); Jump List (flux://mission, flux://new); taskbar progress (indeterminate while a tracked turn is live); thumbnail-toolbar Interrupt (reuses claudeRunner.interrupt). `flux://new` deep-link route → startNewChat. **GOTCHA fixed in final review: gated on `state==='running'` but LiveTracker emits `'starting'`/`'live'` — fixed to `isLiveState` (live||starting); the synthetic unit test had masked it.** Deferred: recent-sessions jump list, macOS dock.
+
+## Sub-project #13 (core) — shipped 2026-06-14 (merged + pushed)
+
+Session archaeology core, 328 tests. `lib/exportSession.js` `toMarkdown` + `file:saveText` IPC + Export button; `HooksPanel.jsx` + Hooks(N) tab in the 3-way Timeline/Files/Hooks toggle (renders #3 hook items); context-pressure gauge shows `detail.compactions`. **Archaeology backlog deferred to a follow-up session** (documented in `2026-06-14-archaeology-core-design.md`): cinema-scrubber replay, fork-from-here (`--fork-session`), Ask Flux (`claude -p` over corpus), conversation constellation (parentUuid graph), HTML export, chapters/auto-titles, pane↔session fusion.
+
+## ▶ PROGRAM COMPLETE 2026-06-14 — all 13 sub-projects shipped
+
+12 sub-projects fully delivered + #13 core (with the XL archaeology heavies documented as a backlog). 328 tests, build clean. Releases: v0.1.0 (hardening, superseded), v0.3.0, **v0.4.0 (final — full power-user app)** all on the hardened gh-upload pipeline. Repo public at github.com/Exotic209093/Flux-Terminal. Cross-cutting minor follow-ups parked across the per-sub-project notes above (e.g. --pulse has no CSS consumer; welcome sessionCount uses list(1); Ctrl+K leaks to xterm; export button unstyled; mainView not reset on session switch).

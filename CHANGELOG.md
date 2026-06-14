@@ -4,6 +4,20 @@ All notable changes to Flux Terminal are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [SemVer](https://semver.org/).
 
+## [0.4.0] - 2026-06-14
+
+Power-user terminal, reactive visuals, Windows surfaces, and session archaeology.
+
+### Added
+- **Terminal QoL:** clickable URLs + file paths, copy-on-select, right-click
+  paste, and launch profiles with custom cwd/shell/args.
+- **Reactive visuals:** scenes respond to live tokens/sec and flare on errors;
+  a live cost odometer; optional WebAudio event cues.
+- **Windows shell integration:** taskbar Jump List, a progress bar while a
+  tracked turn runs, and a thumbnail-toolbar Interrupt button.
+- **Session archaeology:** a hooks-execution panel, a context-pressure gauge
+  (compaction count), and one-click Markdown export of a session.
+
 ## [0.3.0] - 2026-06-14
 
 Visual engine + a reliable release.
