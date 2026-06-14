@@ -12,6 +12,7 @@ import TimelineItem from './TimelineItem'
 import FilesTouched from './FilesTouched'
 import { collectFilesTouched } from '../lib/filesTouched'
 import { Virtuoso } from 'react-virtuoso'
+import { toMarkdown } from '../lib/exportSession'
 
 function duration(start, end) {
   if (!start || !end) return null
@@ -481,6 +482,14 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
           <button className={mainView === 'timeline' ? 'active' : ''} onClick={() => setMainView('timeline')}>Timeline</button>
           <button className={mainView === 'files' ? 'active' : ''} onClick={() => setMainView('files')}>Files ({filesCount})</button>
         </div>
+
+        <button
+          className="sv-export"
+          title="Export this session as Markdown"
+          onClick={() => window.flux.file.saveText({ defaultName: (detail.title || 'session').replace(/[^\w.-]+/g, '_') + '.md', content: toMarkdown(detail) })}
+        >
+          ⭳ Export
+        </button>
       </div>
 
       {detail.file && (
