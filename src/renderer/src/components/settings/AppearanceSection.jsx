@@ -59,6 +59,12 @@ export default function AppearanceSection() {
           ))}
         </div>
       </div>
+
+      <div className="set-sec-label">Sound</div>
+      <div className="set-row">
+        <div className="set-row-l"><span className="set-row-name">Sound cues (in-app)</span><span className="set-row-desc">A soft WebAudio blip on turn-finished / error / blocked.</span></div>
+        <input type="checkbox" checked={!!(settings.audio && settings.audio.enabled)} onChange={(e) => update('audio.enabled', e.target.checked)} />
+      </div>
     </div>
   )
 }
