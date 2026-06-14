@@ -42,7 +42,8 @@ export default defineConfig({
           crashlog: resolve('src/main/crashlog.js'),
           updater: resolve('src/main/updater.js'),
           deeplink: resolve('src/main/deeplink.js'),
-          tray: resolve('src/main/tray.js')
+          tray: resolve('src/main/tray.js'),
+          shellio: resolve('src/main/shellio.js')
         },
         output: {
           entryFileNames: '[name].js'
