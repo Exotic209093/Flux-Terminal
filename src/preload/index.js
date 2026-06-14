@@ -144,5 +144,12 @@ contextBridge.exposeInMainWorld('flux', {
       ipcRenderer.on('deeplink:open', listener)
       return () => ipcRenderer.removeListener('deeplink:open', listener)
     }
+  },
+  shell: {
+    openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),
+    openPath: (p) => ipcRenderer.invoke('shell:openPath', p)
+  },
+  clipboard: {
+    readText: () => ipcRenderer.invoke('clipboard:readText')
   }
 })

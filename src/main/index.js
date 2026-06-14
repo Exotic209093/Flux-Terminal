@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, Notification, nativeImage, protocol, session, Tray, Menu } = require('electron')
+const { app, BrowserWindow, ipcMain, dialog, Notification, nativeImage, protocol, session, Tray, Menu, shell, clipboard } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const os = require('os')
@@ -25,6 +25,7 @@ const { install: installCrashLog } = require('./crashlog')
 const { initAutoUpdate } = require('./updater')
 const { findDeepLink, parseDeepLink } = require('./deeplink')
 const { createTray } = require('./tray')
+const { isAllowedExternalUrl } = require('./shellio')
 
 let mainWindow = null
 let ptyManager = null
@@ -139,8 +140,8 @@ function createWindow() {
 }
 
 // ---- PTY bridge (id-keyed; one pane === one pty) --------------------------
-ipcMain.handle('pty:spawn', (_e, { id, cols, rows, cwd, shell }) => {
-  const p = ptyManager ? ptyManager.spawn(id, { cols, rows, cwd, shell }) : null
+ipcMain.handle('pty:spawn', (_e, { id, cols, rows, cwd, shell, args }) => {
+  const p = ptyManager ? ptyManager.spawn(id, { cols, rows, cwd, shell, args }) : null
   return p
     ? { ok: true, id }
     : { ok: false, id, error: (ptyManager && ptyManager.lastSpawnError) || 'failed to start terminal' }
@@ -154,6 +155,15 @@ ipcMain.on('pty:resize', (_e, { id, cols, rows }) => {
 ipcMain.on('pty:kill', (_e, { id }) => {
   if (ptyManager) ptyManager.kill(id)
 })
+
+// ---- Shell / clipboard IPC (guarded) -------------------------------------
+ipcMain.handle('shell:openExternal', (_e, url) => {
+  if (!isAllowedExternalUrl(url)) return { ok: false, error: 'blocked url' }
+  shell.openExternal(url)
+  return { ok: true }
+})
+ipcMain.handle('shell:openPath', (_e, p) => shell.openPath(String(p || '')))
+ipcMain.handle('clipboard:readText', () => clipboard.readText())
 
 // ---- Sessions bridge ------------------------------------------------------
 ipcMain.handle('sessions:list', (_e, opts) => {

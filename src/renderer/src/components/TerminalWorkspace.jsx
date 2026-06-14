@@ -16,7 +16,7 @@ function freshSeed() {
 export default function TerminalWorkspace({ theme, onActivePty, active }) {
   const [state, dispatch] = useReducer(reducer, undefined, () => initialState(freshSeed()))
   const pendingInput = useRef({})
-  const pendingSpawn = useRef({}) // ptyId -> { cwd, shell }
+  const pendingSpawn = useRef({}) // ptyId -> { cwd, shell, args }
   const stateRef = useRef(state)
   useEffect(() => { stateRef.current = state }, [state])
 
@@ -56,7 +56,7 @@ export default function TerminalWorkspace({ theme, onActivePty, active }) {
     const prof = profileById(profileId)
     if (prof && prof.tracked) { launchTracked(); return }
     const seed = { tabId: uid('t'), paneId: uid('pane'), ptyId: uid('pty'), profileId: prof.id, title: prof.name }
-    pendingSpawn.current[seed.ptyId] = { cwd: prof.cwd || null, shell: prof.shell || null }
+    pendingSpawn.current[seed.ptyId] = { cwd: prof.cwd || null, shell: prof.shell || null, args: prof.args || null }
     dispatch({ type: 'NEW_TAB', ...seed })
   }, [profileById, launchTracked])
   const newTab = useCallback(() => openProfile((profiles[0] && profiles[0].id) || 'powershell'), [openProfile, profiles])
@@ -122,7 +122,7 @@ export default function TerminalWorkspace({ theme, onActivePty, active }) {
           profileId: t.profileId || 'powershell',
           title: t.title || (prof && prof.name) || 'PowerShell'
         }
-        pendingSpawn.current[seed.ptyId] = { cwd: (prof && prof.cwd) || null, shell: (prof && prof.shell) || null }
+        pendingSpawn.current[seed.ptyId] = { cwd: (prof && prof.cwd) || null, shell: (prof && prof.shell) || null, args: (prof && prof.args) || null }
         if (i === 0) dispatch({ type: 'CLOSE_TAB', tabId: stateRef.current.activeTabId })
         dispatch({ type: 'NEW_TAB', ...seed })
       })
@@ -170,6 +170,7 @@ export default function TerminalWorkspace({ theme, onActivePty, active }) {
                       theme={theme}
                       cwd={(pendingSpawn.current[p.ptyId] || {}).cwd}
                       shell={(pendingSpawn.current[p.ptyId] || {}).shell}
+                      args={(pendingSpawn.current[p.ptyId] || {}).args}
                       initialInput={pendingInput.current[p.ptyId]}
                       onFocus={() => dispatch({ type: 'FOCUS_PANE', paneId: p.id })}
                     />

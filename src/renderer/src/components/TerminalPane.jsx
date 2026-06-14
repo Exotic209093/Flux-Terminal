@@ -2,14 +2,19 @@ import { useEffect, useRef, useState } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { SearchAddon } from '@xterm/addon-search'
+import { WebLinksAddon } from '@xterm/addon-web-links'
 import '@xterm/xterm/css/xterm.css'
 import { themeColors, terminalBg, isAnimated } from '../lib/themes'
 import { intensityToAlpha, resolveMotion, prefersReducedMotion } from '../lib/appearance'
 import { useSettings } from '../lib/settings-context'
 
+// Matches Windows (C:\...) and Unix (/abs, ./rel, ../rel) paths in terminal output.
+// Inlined here — do not import from main-process modules.
+const PATH_RE = /(?:[a-zA-Z]:\\[^\s"']+|(?:\.{0,2}\/)[^\s"':]+)/g
+
 // One xterm bound to one PTY id. The PTY is spawned on mount and killed on
 // unmount. Data/exit events are filtered to this pane's id.
-export default function TerminalPane({ ptyId, theme, cwd, shell, initialInput, onFocus }) {
+export default function TerminalPane({ ptyId, theme, cwd, shell, args, initialInput, onFocus }) {
   const hostRef = useRef(null)
   const termRef = useRef(null)
   const searchRef = useRef(null)
@@ -41,6 +46,27 @@ export default function TerminalPane({ ptyId, theme, cwd, shell, initialInput, o
     term.loadAddon(fit)
     const searchAddon = new SearchAddon()
     term.loadAddon(searchAddon)
+    term.loadAddon(new WebLinksAddon((_e, uri) => { window.flux.shell.openExternal(uri) }))
+    // File-path links → open/reveal via the main process.
+    term.registerLinkProvider({
+      provideLinks(lineNo, cb) {
+        const line = term.buffer.active.getLine(lineNo - 1)
+        if (!line) return cb(undefined)
+        const text = line.translateToString(true)
+        const links = []
+        const re = new RegExp(PATH_RE.source, 'g')
+        let m
+        while ((m = re.exec(text))) {
+          const start = m.index
+          links.push({
+            range: { start: { x: start + 1, y: lineNo }, end: { x: start + m[0].length, y: lineNo } },
+            text: m[0],
+            activate: () => window.flux.shell.openPath(m[0])
+          })
+        }
+        cb(links.length ? links : undefined)
+      }
+    })
     termRef.current = term
     searchRef.current = searchAddon
     term.open(hostRef.current)
@@ -58,7 +84,7 @@ export default function TerminalPane({ ptyId, theme, cwd, shell, initialInput, o
     })
 
     let cancelled = false
-    window.flux.pty.spawn({ id: ptyId, cols: term.cols, rows: term.rows, cwd, shell }).then(() => {
+    window.flux.pty.spawn({ id: ptyId, cols: term.cols, rows: term.rows, cwd, shell, args }).then(() => {
       if (cancelled) return
       if (initialInput) window.flux.pty.write(ptyId, initialInput)
     })
@@ -69,6 +95,10 @@ export default function TerminalPane({ ptyId, theme, cwd, shell, initialInput, o
       if (id === ptyId) term.write('\r\n\x1b[2m[process exited]\x1b[0m\r\n')
     })
     const onInput = term.onData((data) => window.flux.pty.write(ptyId, data))
+    const onSel = term.onSelectionChange(() => {
+      const sel = term.getSelection()
+      if (sel) navigator.clipboard.writeText(sel).catch(() => {})
+    })
 
     const syncSize = () => {
       fit.fit()
@@ -79,6 +109,13 @@ export default function TerminalPane({ ptyId, theme, cwd, shell, initialInput, o
     if (hostRef.current) ro.observe(hostRef.current)
     const t = setTimeout(syncSize, 60)
 
+    const host = hostRef.current
+    const onCtx = (e) => {
+      e.preventDefault()
+      window.flux.clipboard.readText().then((text) => { if (text) window.flux.pty.write(ptyId, text) })
+    }
+    if (host) host.addEventListener('contextmenu', onCtx)
+
     return () => {
       cancelled = true
       clearTimeout(t)
@@ -87,6 +124,8 @@ export default function TerminalPane({ ptyId, theme, cwd, shell, initialInput, o
       offData()
       offExit()
       onInput.dispose()
+      onSel.dispose()
+      if (host) host.removeEventListener('contextmenu', onCtx)
       termRef.current = null
       searchRef.current = null
       term.dispose()
