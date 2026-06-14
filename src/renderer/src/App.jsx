@@ -146,22 +146,6 @@ export default function App() {
 
   const openCard = useCallback((card) => openById(card.sessionId, card), [openById])
 
-  const runCommand = useCallback(
-    (item) => {
-      setPaletteOpen(false)
-      if (item.kind === 'session') return openById(item.sessionId)
-      if (item.kind === 'prompt') return startNewChat('', item.body)
-      switch (item.action) {
-        case 'new-chat': return startNewChat()
-        case 'open-search': return setSearchOpen(true)
-        case 'launch-tracked': return setView('terminal')
-        default:
-          if (item.action && item.action.startsWith('view:')) setView(item.action.slice(5))
-      }
-    },
-    [openById, startNewChat]
-  )
-
   const openSearchResult = useCallback(
     (sessionId, file, msgIdx) => {
       openById(sessionId, { file })
@@ -183,6 +167,23 @@ export default function App() {
     setNewChat({ cwd: dir, draft: typeof initialDraft === 'string' ? initialDraft : '' })
     setView('session')
   }, [])
+
+  // runCommand must be defined after startNewChat to avoid a TDZ ReferenceError.
+  const runCommand = useCallback(
+    (item) => {
+      setPaletteOpen(false)
+      if (item.kind === 'session') return openById(item.sessionId)
+      if (item.kind === 'prompt') return startNewChat('', item.body)
+      switch (item.action) {
+        case 'new-chat': return startNewChat()
+        case 'open-search': return setSearchOpen(true)
+        case 'launch-tracked': return setView('terminal')
+        default:
+          if (item.action && item.action.startsWith('view:')) setView(item.action.slice(5))
+      }
+    },
+    [openById, startNewChat]
+  )
 
   const showWelcome = !settings.onboarding?.dismissed
   const dismissWelcome = useCallback(() => update('onboarding.dismissed', true), [update])
