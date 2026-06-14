@@ -125,4 +125,14 @@ Visual engine, 317 tests. `lib/scene-engine.js` (one rAF, DPR≤2, visibility-pa
 
 ## Release pipeline hardened 2026-06-14
 
-Fixed the electron-builder publish race (only blockmap uploaded): release.yml now `electron-builder --win --publish never` then deterministic `gh release upload` (create-or-upload --clobber). Deleted the broken v0.2.0 release+tag. **Cutting v0.3.0 (daily driver + visual engine) as the first reliable downloadable release.**
+Fixed the electron-builder publish race (only blockmap uploaded): release.yml now `electron-builder --win --publish never` then deterministic `gh release upload` (create-or-upload --clobber). Deleted the broken v0.2.0 release+tag. **Cut v0.3.0 (daily driver + visual engine) — first reliable downloadable release (all 3 assets uploaded).**
+
+## Sub-project #10 — shipped 2026-06-14 (merged + pushed)
+
+Terminal power-user QoL, 320 tests. `shellio.js` guards (isAllowedExternalUrl http/https/mailto, looksLikePath) + `shell:openExternal`/`shell:openPath`/`clipboard:readText` IPC + preload; `validArgs` + args threaded TerminalWorkspace→TerminalPane→pty:spawn→createPty→node-pty; TerminalPane WebLinksAddon (guarded openExternal) + path-link provider (inlined regex, no main import) + copy-on-select + right-click paste, all listeners disposed; TerminalSection profile editor exposes cwd/shell/args/tracked (save-on-blur). Deferred/flagged: OSC 133 shell-integration (invasive), split/ratio layout restore.
+
+## Sub-project #11 — shipped 2026-06-14 (merged + pushed)
+
+Visual reactivity + ambient, 324 tests. `lib/reactivity.js` (tokensPerSecFrom, reactiveSpeed); scene-engine `setReactivity` + `draw(t,dim,reactivity)`; 4 scenes react defensively (matrix speed∝tokens/sec, aurora/synthwave flare, nebula shooting rate); ThemeBackground feeds live tokens/sec + error flare + sets `--pulse`; `Odometer.jsx` animated cost in LivePanel; `lib/audio.js` WebAudio cues + `settings.audio.enabled` + App triggers via notify.onHistoryAdd + AppearanceSection toggle. Deferred: always-on-top HUD, screensaver. Minor parked: `--pulse` var set but no CSS rule reads it yet (inert flourish); Odometer mid-tween jump; dead formatUSD import in LivePanel.
+
+**11/13 shipped. Next: #12 Windows Shell Integration (S), then #13 Archaeology Suite (XL).**
