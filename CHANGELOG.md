@@ -4,6 +4,30 @@ All notable changes to Flux Terminal are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [SemVer](https://semver.org/).
 
+## [0.2.0] - 2026-06-14
+
+The power-user daily-driver release.
+
+### Added
+- **Rich timeline:** markdown rendering with syntax-highlighted code, collapsible
+  thinking blocks, per-message timestamps, and a virtualized timeline that stays
+  fast on huge sessions.
+- **Inline diffs:** Edit/Write changes render as colored diffs; a **Files** view
+  per session lists every touched file with its diffs.
+- **Command palette (Ctrl+K):** fuzzy-jump to any session, run any action, or
+  launch a saved prompt.
+- **Mission Control depth:** age badges (how long a session has needed you),
+  TodoWrite progress chips, and per-session snooze.
+- **Never-blocking composer:** type and queue messages while Claude is working;
+  a failed send no longer loses your draft.
+- **System tray** with Show/Quit and optional close-to-tray; **`flux://` deep
+  links** open a session from anywhere; optional **ntfy push** on needs-you events.
+- **Subagent drill-in** from a parent Task tool call.
+
+### Changed
+- The parser now retains diffs, hook executions, compaction boundaries, and
+  conversation threading ids (groundwork for replay, hooks, and analytics views).
+
 ## [0.1.0] - 2026-06-13
 
 First published release.

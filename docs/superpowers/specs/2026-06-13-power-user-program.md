@@ -84,3 +84,37 @@ CI + auto-update pipeline merged to main and wired live. 276 tests pass; CI gree
 Gotcha fixed: electron-builder's GitHub publisher defaults to `releaseType: draft` (invisible on Releases page + electron-updater can't read a draft) — set `releaseType: release` in the publish block so tag-push → live release → auto-update works.
 
 Next: #3 JSONL Parser Goldmine Extraction (no-UI data enabler; gates #5/#6/#13).
+
+## Sub-project #3 — shipped 2026-06-14 (merged to main + pushed)
+
+Parser goldmine extraction, 282 tests (no regressions, counts shape unchanged). Additive to the shared per-line reducer (`applyEvent`/`walkContent`), so it propagates to whole-file + live/index tailer. Delivered: uuid/parentUuid stamped on every timeline item (post-switch loop in applyEvent, `=== undefined` guard) + tool_use `id`; capped `toolUseResult` (`MAX_RESULT=4000`) on tool_result items — `structuredPatch` (via `capPatch` → `{truncated:true}` if oversized), `filePath` (with `tur.file.filePath` fallback), `stdout`/`stderr`; `type:'attachment'` → `kind:'hook'` items (hookName/hookEvent/status/toolUseId/text) + `model.hookCount`; `compact_boundary` → `kind:'compact'` + `model.compactions`; `subagents.js` surfaces `meta.toolUseId`. YAGNI-deferred (no consumer yet): file-history-snapshot, queue-operation, permission-mode. Minor follow-up parked: hook-item test doesn't assert uuid stamping (works, just untested). Real shapes verified against ~/.claude transcripts: hook data nests under `o.attachment` (toolUseID capital), structuredPatch is an array under toolUseResult.
+
+Next: #4 Timeline Performance + Rich Rendering (L; virtualization gates cinema replay #13).
+
+## Sub-project #4 — shipped 2026-06-14 (merged to main + pushed)
+
+Timeline perf + rich rendering, 285 tests, build clean. Deps added: react-virtuoso, react-markdown, remark-gfm, rehype-highlight, highlight.js. Delivered: `Markdown.jsx` (gfm + hljs github-dark); memoized `TimelineItem.jsx` extracted from SessionView — markdown text bodies, collapsible thinking (collapsed default), per-item `ts` in gutter; `react-virtuoso` virtualization (followOutput auto-scroll, atBottomStateChange→jump button, scrollToIndex for search-jump + LAST for bottom, Footer carries pending/working/error rows; ALL old manual scroll code removed — no scrollRef/onScroll/querySelectorAll); never-blocking composer (textarea no longer disabled while running) + pure `composerQueue.js` FIFO reducer (enqueue-while-running, flush effect on sendState transition, draft restored on error via lastSent ref, single-dequeue prevents double-send) + "N queued" indicator; terminal shortcuts gated on `active` prop (App passes view==='terminal') + Ctrl+W closes without confirm + TerminalPane.attachCustomKeyEventHandler returns false only for Ctrl+T/W/Tab, Ctrl+Shift+E/O, Alt+Arrows. composerQueue.js is ESM; its test uses dynamic import() (works Node 22.0+). Renderer bundle now ~1.97MB (fine for desktop). Minor follow-ups parked: Markdown inline plugin arrays re-created per render (hoist to module consts); Footer/flash defeat memo (bounded by virtualization); queue-flush omits setShowJump(false) (brief jump-button flicker).
+
+Next: #5 Files-Touched Tab + Diff Lens (unblocked by #3 parser data + #4 rendering).
+
+## Sub-project #5 — shipped 2026-06-14 (merged to main + pushed)
+
+Files-touched + diff lens, 288 tests, build clean, no new deps. `Diff.jsx` renders structuredPatch hunks (+/- colored, `{truncated}`→notice); pure `lib/filesTouched.js` (`diffStats`, `collectFilesTouched`, ESM + dynamic-import test); inline collapsible `DiffResult` on tool_result items (falls back to text when no patch); `FilesTouched.jsx` + Timeline/Files(N) toggle in session header (Virtuoso preserved in else-branch); parent→subagent drill-in (SubagentPanel made optionally-controlled via openId/onOpenId/onList with internalOpenId fallback; `subByToolUseId` useMemo map; "↘ open subagent" button on matching Task tool_use). gh commit/PR action deferred. Minor follow-ups parked: filesCount recomputes collectFilesTouched per render (memo it); mainView not reset on session change (leaving Files tab → new session shows empty); inline DiffResult always expanded (spec wanted collapsed-by-default for large); SubagentPanel onList missing from effect deps (safe, stable setter); .tl-diff-head missing width:100%.
+
+Next: #6 Mission Control Cockpit Depth.
+
+## Sub-project #6 — shipped 2026-06-14 (merged to main + pushed)
+
+Mission cockpit depth, 295 tests, build clean, no new deps. Parser `lastTodos` (latest TodoWrite todos, capped 50/200); Notifier per-session `snooze(sessionId, minutes)` (deadline map, checked after mute) + `notify:snooze` IPC + preload; monitor tracks `attnSince` (set on enter needs-you, clear on leave) + `todos`; `composeCards` surfaces `attnSince`/`todos`, `cardsChanged` flips on `todoSig`/`attnSince`; MissionCard renders age badge (needs-you duration), todo progress chip (✓done/total + active), and a 😴 snooze button (stopPropagation). **Reassigned: ntfy/Pushover push → #8** (remote-notification cluster). Deferred/flagged: Interrupt-from-card (only Flux-spawned ClaudeRunner children interruptible, not external claude), OS toast action buttons (Electron Notification.actions is macOS-only). Minor parked: todoSig tracks done/total only, so active-task label can be stale until next completion.
+
+Next: #7 Command Palette + Prompt History.
+
+## Sub-project #7 — shipped 2026-06-14 (merged + pushed)
+
+Command palette, 302 tests. Pure `lib/fuzzy.js` (exact>prefix>substring>subsequence, word-boundary first char, substring gated to len>1) + `lib/palette.js` (buildCommands/filterCommands over actions+sessions+prompts); `CommandPalette.jsx` Ctrl+K overlay; App runCommand dispatch + `startNewChat(cwd, initialDraft)` prefill + SessionView one-shot draft seed. Full prompt-history search stays Ctrl+Shift+F. Minor parked: Ctrl+K not in TerminalPane attachCustomKeyEventHandler block list (leaks a control byte to a focused xterm, same as existing Ctrl+M/Ctrl+,); session sub-line shows cwd (no `project` field on session DTO).
+
+## Sub-project #8 — shipped 2026-06-14 (merged + pushed) — ▶ CHECKPOINT B REACHED (OSS-download-ready)
+
+Tray + deep links + ntfy push, 312 tests. `deeplink.js` parseDeepLink/findDeepLink (flux://session/<uuid>, flux://mission); index.js setAsDefaultProtocolClient (dev-aware) + extended the #1 second-instance handler to route + open-url + cold-start did-finish-load; electron-builder.yml `protocols` block; preload deeplink.onOpen; App routes session→openById / mission→setView. `tray.js` createTray (Show/Quit, data-URL icon fallback) + close-to-tray (settings.tray.closeToTray + isQuitting guard). ntfy push: settings.push{enabled,url} + tray{closeToTray} (setByPath routes); notify shouldPush/buildPushMessage + Notifier.httpPost. **Final review caught a Critical: index.js wasn't injecting httpPost → push was a no-op in prod (unit tests passed via injected stub); fixed by wiring a fetch-based httpPost into the Notifier.** Settings UI: close-to-tray + push in NotificationsSection. Minor parked: index close handler reads settings.tray.closeToTray without optional chaining (safe, DEFAULTS always present).
+
+**▶ Checkpoint B = OSS-download-ready. Cutting v0.2.0 release. 8/13 sub-projects done. Remaining (post-OSS polish): #9 Visual Engine, #10 Terminal QoL, #11 Visual Reactivity, #12 Windows Shell Integration, #13 Archaeology Suite (XL, split 3×L).**
