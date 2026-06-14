@@ -42,6 +42,12 @@ export function resolveMotion(animations, reducedMotion) {
   return !reducedMotion // 'auto'
 }
 
+export function intensityToAlpha(intensity) {
+  if (intensity === 'subtle') return 0.9
+  if (intensity === 'bold') return 0.62
+  return 0.76 // balanced / unknown
+}
+
 // Merge legacy localStorage values into the stored appearance object. Legacy
 // wins where present + valid. legacy = { theme, animations: '1'|'0'|null, model }.
 export function mergeLegacyAppearance(current, legacy) {

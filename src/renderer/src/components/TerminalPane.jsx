@@ -3,7 +3,9 @@ import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { SearchAddon } from '@xterm/addon-search'
 import '@xterm/xterm/css/xterm.css'
-import { themeColors } from '../lib/themes'
+import { themeColors, terminalBg, isAnimated } from '../lib/themes'
+import { intensityToAlpha, resolveMotion, prefersReducedMotion } from '../lib/appearance'
+import { useSettings } from '../lib/settings-context'
 
 // One xterm bound to one PTY id. The PTY is spawned on mount and killed on
 // unmount. Data/exit events are filtered to this pane's id.
@@ -12,16 +14,24 @@ export default function TerminalPane({ ptyId, theme, cwd, shell, initialInput, o
   const termRef = useRef(null)
   const searchRef = useRef(null)
   const [search, setSearch] = useState(null) // null = closed; string = open with query
+  const { settings } = useSettings()
 
   useEffect(() => {
+    const { animations, intensity } = settings.appearance
+    const animationsOn = resolveMotion(animations, prefersReducedMotion())
+    const animatedBg = animationsOn && isAnimated(theme)
+    const background = animatedBg
+      ? terminalBg(theme, intensityToAlpha(intensity))
+      : themeColors(theme).background
     const c = themeColors(theme)
     const term = new Terminal({
       fontFamily: '"Cascadia Code", "Cascadia Mono", Consolas, monospace',
       fontSize: 14,
       cursorBlink: true,
       allowProposedApi: true,
+      allowTransparency: true,
       theme: {
-        background: c.background,
+        background,
         foreground: c.foreground,
         cursor: c.cursor,
         selectionBackground: 'rgba(137,180,250,0.25)'
@@ -83,6 +93,20 @@ export default function TerminalPane({ ptyId, theme, cwd, shell, initialInput, o
       window.flux.pty.kill(ptyId)
     }
   }, [ptyId])
+
+  // Re-apply theme colours (including transparency) when theme/intensity/animations change.
+  useEffect(() => {
+    const term = termRef.current
+    if (!term) return
+    const { animations, intensity } = settings.appearance
+    const animationsOn = resolveMotion(animations, prefersReducedMotion())
+    const animatedBg = animationsOn && isAnimated(theme)
+    const background = animatedBg
+      ? terminalBg(theme, intensityToAlpha(intensity))
+      : themeColors(theme).background
+    const c = themeColors(theme)
+    term.options.theme = { ...term.options.theme, background, foreground: c.foreground, cursor: c.cursor }
+  }, [theme, settings.appearance.animations, settings.appearance.intensity])
 
   useEffect(() => {
     const host = hostRef.current

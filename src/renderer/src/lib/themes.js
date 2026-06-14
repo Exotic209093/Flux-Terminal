@@ -162,6 +162,18 @@ export function saveTheme(key) {
   }
 }
 
+export function hexToRgba(hex, alpha) {
+  const h = String(hex || '').replace('#', '')
+  const n = parseInt(h.length === 3 ? h.split('').map((c) => c + c).join('') : h, 16)
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
+
+export function terminalBg(key, alpha) {
+  const t = THEMES[key] || THEMES.midnight
+  return hexToRgba(t.vars['--bg'], alpha)
+}
+
 /** Read current theme vars for syncing the xterm canvas colors. */
 export function themeColors(key) {
   const t = THEMES[key] || THEMES.midnight

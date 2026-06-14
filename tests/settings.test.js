@@ -64,7 +64,7 @@ test('muted is a boolean notify key, defaults false, round-trips', () => {
 test('appearance defaults + version 3', () => {
   const { DEFAULTS } = require('../src/main/settings.js')
   assert.strictEqual(DEFAULTS.version, 3)
-  assert.deepStrictEqual(DEFAULTS.appearance, { theme: 'midnight', animations: 'auto', model: null })
+  assert.deepStrictEqual(DEFAULTS.appearance, { theme: 'midnight', animations: 'auto', model: null, intensity: 'balanced' })
   assert.strictEqual(DEFAULTS.appearanceMigrated, false)
 })
 
@@ -76,7 +76,7 @@ test('setAppearance validates and persists', (t) => {
   s.setAppearance('theme', 'aurora')
   s.setAppearance('animations', 'off')
   s.setAppearance('model', 'claude-opus-4-8')
-  assert.deepStrictEqual(s.get().appearance, { theme: 'aurora', animations: 'off', model: 'claude-opus-4-8' })
+  assert.deepStrictEqual(s.get().appearance, { theme: 'aurora', animations: 'off', model: 'claude-opus-4-8', intensity: 'balanced' })
   assert.throws(() => s.setAppearance('animations', 'sometimes'))
   assert.throws(() => s.setAppearance('theme', ''))
   assert.throws(() => s.setAppearance('nope', 'x'))
@@ -109,7 +109,7 @@ test('v1 file loads forward to v3 with default appearance', (t) => {
   const s = new SettingsStore(file)
   const d = s.get()
   assert.strictEqual(d.version, 3)
-  assert.deepStrictEqual(d.appearance, { theme: 'midnight', animations: 'auto', model: null })
+  assert.deepStrictEqual(d.appearance, { theme: 'midnight', animations: 'auto', model: null, intensity: 'balanced' })
   assert.strictEqual(d.notify.sound, true)
   assert.strictEqual(d.appearanceMigrated, false)
   fs.unlinkSync(file)

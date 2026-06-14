@@ -49,6 +49,16 @@ export default function AppearanceSection() {
           ))}
         </div>
       </div>
+
+      <div className="set-sec-label">Intensity</div>
+      <div className="set-row">
+        <div className="set-row-l"><span className="set-row-name">Background intensity</span><span className="set-row-desc">How much the animated scene shows through the terminal.</span></div>
+        <div className="set-seg">
+          {['subtle', 'balanced', 'bold'].map((v) => (
+            <button key={v} className={'set-seg-btn' + ((settings.appearance.intensity || 'balanced') === v ? ' on' : '')} onClick={() => update('appearance.intensity', v)}>{v}</button>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }
