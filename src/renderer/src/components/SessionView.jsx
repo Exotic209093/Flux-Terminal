@@ -465,6 +465,9 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
             <span className={'sv-context-pct' + (ctxPct >= 80 ? ' hot' : '')}>
               {ctxPct}% · {formatTokens(ctx)} / {formatTokens(maxCtx)}
             </span>
+            {detail.compactions > 0 && (
+              <span className="sv-compactions" title="History compactions in this session">· compacted {detail.compactions}×</span>
+            )}
           </div>
           <div className="ctx-bar">
             <span className={ctxPct >= 80 ? 'ctx-fill hot' : 'ctx-fill'} style={{ width: ctxPct + '%' }} />
