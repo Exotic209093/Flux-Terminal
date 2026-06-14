@@ -28,7 +28,9 @@ const DEFAULTS = {
   profiles: DEFAULT_PROFILES,
   workspace: null,
   onboarding: { dismissed: false, version: 1 },
-  appearanceMigrated: false
+  appearanceMigrated: false,
+  push: { enabled: false, url: '' },
+  tray: { closeToTray: false }
 }
 
 function clone(o) {
@@ -72,6 +74,13 @@ class SettingsStore {
       if (parsed.onboarding && typeof parsed.onboarding === 'object') {
         if (typeof parsed.onboarding.dismissed === 'boolean') this.data.onboarding.dismissed = parsed.onboarding.dismissed
         if (typeof parsed.onboarding.version === 'number') this.data.onboarding.version = parsed.onboarding.version
+      }
+      if (parsed.push && typeof parsed.push === 'object') {
+        if (typeof parsed.push.enabled === 'boolean') this.data.push.enabled = parsed.push.enabled
+        if (typeof parsed.push.url === 'string') this.data.push.url = parsed.push.url
+      }
+      if (parsed.tray && typeof parsed.tray === 'object') {
+        if (typeof parsed.tray.closeToTray === 'boolean') this.data.tray.closeToTray = parsed.tray.closeToTray
       }
     } catch {
       this.data = clone(DEFAULTS) // corrupt → defaults
@@ -147,6 +156,27 @@ class SettingsStore {
     return this.get()
   }
 
+  setPush(key, value) {
+    if (key === 'enabled') {
+      if (typeof value !== 'boolean') throw new Error('push.enabled must be boolean')
+      this.data.push.enabled = value
+    } else if (key === 'url') {
+      if (typeof value !== 'string') throw new Error('push.url must be a string')
+      this.data.push.url = value
+    } else throw new Error('unknown push key: ' + key)
+    this._save()
+    return this.get()
+  }
+
+  setTray(key, value) {
+    if (key === 'closeToTray') {
+      if (typeof value !== 'boolean') throw new Error('tray.closeToTray must be boolean')
+      this.data.tray.closeToTray = value
+    } else throw new Error('unknown tray key: ' + key)
+    this._save()
+    return this.get()
+  }
+
   // Dotted-path setter used by the generic settings:set IPC.
   setByPath(path, value) {
     const [section, key] = String(path).split('.')
@@ -154,6 +184,8 @@ class SettingsStore {
     if (section === 'notify') return this.setNotify(key, value)
     if (path === 'appearanceMigrated') return this.setMigrated(value)
     if (section === 'onboarding') return this.setOnboarding(key, value)
+    if (section === 'push') return this.setPush(key, value)
+    if (section === 'tray') return this.setTray(key, value)
     throw new Error('unknown settings path: ' + path)
   }
 

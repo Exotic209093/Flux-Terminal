@@ -32,6 +32,16 @@ function titleFor(notice) {
   }
 }
 
+function shouldPush(eventType, push) {
+  if (!push || !push.enabled || !push.url) return false
+  return eventType === 'turn:error' || eventType === 'blocked' || eventType === 'usage:threshold'
+}
+
+function buildPushMessage(notice) {
+  const { title, body } = titleFor(notice)
+  return { title, body }
+}
+
 class Notifier {
   constructor(opts = {}) {
     this.getWindow = opts.getWindow || (() => null)
@@ -44,6 +54,7 @@ class Notifier {
     this.onHistory = opts.onHistory || (() => {})
     this.history = []
     this.snoozed = new Map() // sessionId -> deadline ms
+    this.httpPost = opts.httpPost || (() => {})
   }
 
   snooze(sessionId, minutes) {
@@ -71,6 +82,11 @@ class Notifier {
     else if (mode === 'badge') this._badge()
     if (setting.sound) this.beep()
     this._record(notice, mode)
+
+    const push = this.getSettings().push
+    if (shouldPush(notice.event.type, push)) {
+      try { this.httpPost(push.url, buildPushMessage(notice)) } catch { /* best-effort */ }
+    }
   }
 
   _toast(notice) {
@@ -131,4 +147,4 @@ class Notifier {
   }
 }
 
-module.exports = { Notifier, titleFor, COALESCE_MS, EVENT_SETTING, MAX_HISTORY }
+module.exports = { Notifier, titleFor, shouldPush, buildPushMessage, COALESCE_MS, EVENT_SETTING, MAX_HISTORY }
