@@ -1,5 +1,6 @@
 import { memo, useState } from 'react'
 import Markdown from './Markdown'
+import Diff from './Diff'
 
 const KIND_LABEL = {
   user: 'You',
@@ -17,6 +18,18 @@ function fmtTs(ts) {
   const d = new Date(ts)
   if (Number.isNaN(d.getTime())) return ''
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+}
+
+function DiffResult({ result }) {
+  const [open, setOpen] = useState(true)
+  return (
+    <div className="tl-diff">
+      <button className="tl-diff-head" onClick={() => setOpen((o) => !o)}>
+        {open ? '▾' : '▸'} {result.filePath || 'diff'}
+      </button>
+      {open && <Diff patch={result.structuredPatch} />}
+    </div>
+  )
 }
 
 function TimelineItemBase({ item, onImage, flash, subByToolUseId, onOpenSubagent }) {
@@ -40,7 +53,11 @@ function TimelineItemBase({ item, onImage, flash, subByToolUseId, onOpenSubagent
             {item.toolInput && <pre className="tl-pre">{item.toolInput}</pre>}
           </div>
         ) : item.kind === 'tool_result' ? (
-          <pre className="tl-pre tl-dim">{item.text}</pre>
+          item.result && item.result.structuredPatch ? (
+            <DiffResult result={item.result} />
+          ) : (
+            <pre className="tl-pre tl-dim">{item.text}</pre>
+          )
         ) : item.kind === 'thinking' ? (
           <div className="tl-thinking">
             <button className="tl-thinking-toggle" onClick={() => setOpen((o) => !o)}>

@@ -2050,3 +2050,6 @@ html[data-theme="matrix"] .theme-bg { background: #050a05; }
 .diff-del { background: rgba(200,64,64,0.18); }
 .diff-ctx { color: var(--text-faint); }
 .diff-note { color: var(--text-faint); font-size: 12px; font-style: italic; padding: 4px 0; }
+
+/* ---- Task 3: inline diffs in tool_result items ------------------------- */
+.tl-diff-head { background: none; border: none; color: var(--text-faint); cursor: pointer; font-family: var(--mono, monospace); font-size: 12px; padding: 0 0 2px; }
