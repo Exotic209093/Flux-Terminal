@@ -31,7 +31,8 @@ const DEFAULTS = {
   onboarding: { dismissed: false, version: 1 },
   appearanceMigrated: false,
   push: { enabled: false, url: '' },
-  tray: { closeToTray: false }
+  tray: { closeToTray: false },
+  audio: { enabled: false }
 }
 
 function clone(o) {
@@ -84,6 +85,7 @@ class SettingsStore {
       if (parsed.tray && typeof parsed.tray === 'object') {
         if (typeof parsed.tray.closeToTray === 'boolean') this.data.tray.closeToTray = parsed.tray.closeToTray
       }
+      if (parsed.audio && typeof parsed.audio === 'object' && typeof parsed.audio.enabled === 'boolean') this.data.audio.enabled = parsed.audio.enabled
     } catch {
       this.data = clone(DEFAULTS) // corrupt → defaults
     }
@@ -182,6 +184,15 @@ class SettingsStore {
     return this.get()
   }
 
+  setAudio(key, value) {
+    if (key === 'enabled') {
+      if (typeof value !== 'boolean') throw new Error('audio.enabled must be boolean')
+      this.data.audio.enabled = value
+    } else throw new Error('unknown audio key: ' + key)
+    this._save()
+    return this.get()
+  }
+
   // Dotted-path setter used by the generic settings:set IPC.
   setByPath(path, value) {
     const [section, key] = String(path).split('.')
@@ -191,6 +202,7 @@ class SettingsStore {
     if (section === 'onboarding') return this.setOnboarding(key, value)
     if (section === 'push') return this.setPush(key, value)
     if (section === 'tray') return this.setTray(key, value)
+    if (section === 'audio') return this.setAudio(key, value)
     throw new Error('unknown settings path: ' + path)
   }
 

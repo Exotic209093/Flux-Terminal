@@ -20,6 +20,7 @@ import { resolveMotion, prefersReducedMotion } from './lib/appearance'
 import { useSettings } from './lib/settings-context'
 import { useSessions } from './lib/sessions-context'
 import { resolveSession, mergeAppend } from './lib/sessionlist.js'
+import { playCue } from './lib/audio'
 
 // The terminal stays MOUNTED at all times so its PTY (and any running `claude`)
 // survives switching to a session/stats view and back. Opening a session also
@@ -52,6 +53,12 @@ export default function App() {
 
   const [live, setLive] = useState(null)
   useEffect(() => window.flux.live.onUpdate(setLive), [])
+
+  useEffect(() => {
+    return window.flux.notify.onHistoryAdd((entry) => {
+      if (settings.audio && settings.audio.enabled) playCue(entry.type)
+    })
+  }, [settings.audio])
 
   const [doctor, setDoctor] = useState(null)
   useEffect(() => {
@@ -291,7 +298,7 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <ThemeBackground theme={theme} animated={animated} />
+      <ThemeBackground theme={theme} animated={animated} live={live} />
       <Sidebar
         sessions={sessions}
         loading={sessionsLoading}

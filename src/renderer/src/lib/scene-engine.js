@@ -8,6 +8,7 @@ function createEngine(canvas, registry) {
   let raf = 0
   let running = false
   let dim = { w: 0, h: 0 }
+  let reactivity = { tokensPerSec: 0, flare: 0 }
 
   function size() {
     const dpr = Math.min(2, window.devicePixelRatio || 1)
@@ -33,7 +34,7 @@ function createEngine(canvas, registry) {
   function frame(t) {
     if (!running) return
     raf = requestAnimationFrame(frame)
-    if (scene && scene.draw) scene.draw(t, dim)
+    if (scene && scene.draw) scene.draw(t, dim, reactivity)
   }
   function start() {
     if (running || !scene) return
@@ -70,7 +71,9 @@ function createEngine(canvas, registry) {
     scene = null
   }
 
-  return { setScene, start, stop, destroy }
+  function setReactivity(next) { reactivity = { ...reactivity, ...(next || {}) } }
+
+  return { setScene, start, stop, destroy, setReactivity }
 }
 
 export { createEngine }
