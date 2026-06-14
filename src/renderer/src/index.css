@@ -2083,3 +2083,5 @@ html[data-theme="matrix"] .theme-bg { background: #050a05; }
 .palette-label { color: var(--text); }
 .palette-sub { margin-left: auto; color: var(--text-faint); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 45%; }
 .palette-empty { padding: 16px; color: var(--text-faint); }
+
+.set-text { background: rgba(255,255,255,0.06); border: 1px solid var(--border, #2a2a2a); color: var(--text); border-radius: 6px; padding: 5px 8px; min-width: 240px; }
