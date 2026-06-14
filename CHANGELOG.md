@@ -4,6 +4,20 @@ All notable changes to Flux Terminal are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [SemVer](https://semver.org/).
 
+## [0.3.0] - 2026-06-14
+
+Visual engine + a reliable release.
+
+### Added
+- **Animated visual engine:** a Canvas-2D scene engine renders Aurora, Nebula,
+  Synthwave, and Matrix scenes behind a now semi-transparent terminal, with a
+  **Subtle / Balanced / Bold** intensity control. Static themes stay opaque.
+
+### Fixed
+- The release pipeline now uploads the installer + `latest.yml` deterministically
+  via the `gh` CLI (electron-builder's publisher was racing the upload and leaving
+  releases with only a blockmap — v0.2.0 was affected).
+
 ## [0.2.0] - 2026-06-14
 
 The power-user daily-driver release.

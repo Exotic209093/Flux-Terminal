@@ -31,7 +31,22 @@ jobs:
       - name: Build renderer/main/preload
         run: npm run build
 
-      - name: Package + publish NSIS to the GitHub Release
-        run: npx electron-builder --win --publish always
+      # Build the installer but do NOT let electron-builder upload it:
+      # its GitHub publisher races the release creation against the large .exe
+      # upload and exits 0 having uploaded only the small .blockmap. We upload
+      # the artifacts deterministically with the gh CLI instead. electron-builder
+      # still emits latest.yml (the electron-updater feed) because publish:github
+      # is configured in electron-builder.yml.
+      - name: Package NSIS installer
+        run: npx electron-builder --win --publish never
+
+      - name: Publish artifacts to the GitHub Release
+        shell: bash
+        run: |
+          set -e
+          files=(dist/*.exe dist/*.exe.blockmap dist/latest.yml)
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 \
+            && gh release upload "$GITHUB_REF_NAME" "${files[@]}" --clobber \
+            || gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes "Flux Terminal $GITHUB_REF_NAME — see CHANGELOG.md" "${files[@]}"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
