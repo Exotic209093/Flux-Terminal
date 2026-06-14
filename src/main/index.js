@@ -427,6 +427,21 @@ ipcMain.handle('dialog:pickFolder', async () => {
   return { ok: true, path: res.filePaths[0] }
 })
 
+// ---- File save (Markdown export) -----------------------------------------
+ipcMain.handle('file:saveText', async (_e, { defaultName, content } = {}) => {
+  try {
+    const res = await dialog.showSaveDialog(mainWindow, {
+      defaultPath: defaultName || 'export.md',
+      filters: [{ name: 'Markdown', extensions: ['md'] }, { name: 'All files', extensions: ['*'] }]
+    })
+    if (res.canceled || !res.filePath) return { ok: false, canceled: true }
+    await fs.promises.writeFile(res.filePath, String(content || ''), 'utf-8')
+    return { ok: true, path: res.filePath }
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+})
+
 // ---- Live session tracking ------------------------------------------------
 // The renderer launches `claude --session-id <uuid>` in the PTY and tells us the
 // uuid; we tail exactly that file and stream snapshots back via 'live:update'.

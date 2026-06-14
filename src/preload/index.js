@@ -151,5 +151,8 @@ contextBridge.exposeInMainWorld('flux', {
   },
   clipboard: {
     readText: () => ipcRenderer.invoke('clipboard:readText')
+  },
+  file: {
+    saveText: (args) => ipcRenderer.invoke('file:saveText', args)
   }
 })

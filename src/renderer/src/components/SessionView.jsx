@@ -11,7 +11,9 @@ import SubagentPanel from './SubagentPanel'
 import TimelineItem from './TimelineItem'
 import FilesTouched from './FilesTouched'
 import { collectFilesTouched } from '../lib/filesTouched'
+import HooksPanel from './HooksPanel'
 import { Virtuoso } from 'react-virtuoso'
+import { toMarkdown } from '../lib/exportSession'
 
 function duration(start, end) {
   if (!start || !end) return null
@@ -444,6 +446,7 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
   const ctxPct = Math.min(100, Math.round((ctx / maxCtx) * 100))
 
   const filesCount = (detail.timeline ? collectFilesTouched(detail.timeline) : []).length
+  const hooksCount = (detail.timeline || []).filter((i) => i.kind === 'hook').length
 
   return (
     <div className="session-view">
@@ -462,6 +465,9 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
             <span className={'sv-context-pct' + (ctxPct >= 80 ? ' hot' : '')}>
               {ctxPct}% · {formatTokens(ctx)} / {formatTokens(maxCtx)}
             </span>
+            {detail.compactions > 0 && (
+              <span className="sv-compactions" title="History compactions in this session">· compacted {detail.compactions}×</span>
+            )}
           </div>
           <div className="ctx-bar">
             <span className={ctxPct >= 80 ? 'ctx-fill hot' : 'ctx-fill'} style={{ width: ctxPct + '%' }} />
@@ -480,7 +486,18 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
         <div className="sv-viewtoggle">
           <button className={mainView === 'timeline' ? 'active' : ''} onClick={() => setMainView('timeline')}>Timeline</button>
           <button className={mainView === 'files' ? 'active' : ''} onClick={() => setMainView('files')}>Files ({filesCount})</button>
+          {hooksCount > 0 && (
+            <button className={mainView === 'hooks' ? 'active' : ''} onClick={() => setMainView('hooks')}>Hooks ({hooksCount})</button>
+          )}
         </div>
+
+        <button
+          className="sv-export"
+          title="Export this session as Markdown"
+          onClick={() => window.flux.file.saveText({ defaultName: (detail.title || 'session').replace(/[^\w.-]+/g, '_') + '.md', content: toMarkdown(detail) })}
+        >
+          ⭳ Export
+        </button>
       </div>
 
       {detail.file && (
@@ -498,6 +515,8 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
         <div className="sv-timeline-wrap">
           <FilesTouched timeline={detail.timeline} />
         </div>
+      ) : mainView === 'hooks' ? (
+        <div className="sv-timeline-wrap"><HooksPanel timeline={detail.timeline} /></div>
       ) : (
         <div className="sv-timeline-wrap">
           <Virtuoso
