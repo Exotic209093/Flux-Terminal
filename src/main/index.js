@@ -26,6 +26,7 @@ const { initAutoUpdate } = require('./updater')
 const { findDeepLink, parseDeepLink } = require('./deeplink')
 const { createTray } = require('./tray')
 const { isAllowedExternalUrl } = require('./shellio')
+const { installJumpList, installThumbar, applyProgress } = require('./winshell')
 
 let mainWindow = null
 let ptyManager = null
@@ -34,6 +35,7 @@ let usagePoller = null
 let claudeRunner = null
 let isQuitting = false
 let tray = null
+let thumbar = null
 
 // Prompt library — path is set in whenReady once app.getPath() is available.
 let promptStore = null
@@ -463,6 +465,9 @@ app.whenReady().then(() => {
     iconPath: fs.existsSync(iconPath) ? iconPath : null
   })
 
+  installJumpList(app, process.execPath)
+  thumbar = installThumbar(mainWindow, { nativeImage, onInterrupt: () => { if (claudeRunner) claudeRunner.interrupt() } })
+
   promptStore = new PromptStore(path.join(app.getPath('userData'), 'prompts.json'))
   promptStore.seed()
 
@@ -521,6 +526,8 @@ app.whenReady().then(() => {
   liveTracker = new LiveTracker((snapshot) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('live:update', snapshot)
+      applyProgress(mainWindow, snapshot)
+      if (thumbar) thumbar.update(!!(snapshot && snapshot.state === 'running'))
     }
   })
 
