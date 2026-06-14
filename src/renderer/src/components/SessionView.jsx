@@ -48,6 +48,7 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
   const [queue, setQueue] = useState(emptyQueue())
   const lastSent = useRef(null)
   const composerRef = useRef(null)
+  const seededDraftFor = useRef(null)
   const [lightbox, setLightbox] = useState(null)
   const [attachment, setAttachment] = useState(null) // { file, name }
   const [subOpenId, setSubOpenId] = useState(null)
@@ -124,6 +125,14 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
       if (res && res.ok) setPrompts(res.prompts)
     })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Seed the composer once when the palette launches a new chat with a prefilled prompt.
+  useEffect(() => {
+    if (newChat && newChat.draft && seededDraftFor.current !== newChat) {
+      seededDraftFor.current = newChat
+      setDraft(newChat.draft)
+    }
+  }, [newChat])
 
   // Menu shows while the draft is just "/name-being-typed" (no whitespace yet).
   const slashFilter = /^\/\S*$/.test(draft) ? draft : null
