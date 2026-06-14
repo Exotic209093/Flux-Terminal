@@ -2065,3 +2065,9 @@ html[data-theme="matrix"] .theme-bg { background: #050a05; }
 .ft-stat.ft-add { color: #6cc070; }
 .ft-stat.ft-del { color: #d06060; }
 .ft-count { color: var(--text-faint); font-size: 11px; }
+
+/* ---- Task 4: Mission Control age badge, todo chip, snooze --------------- */
+.mcard-age { color: #f9e2af; font-size: 11px; margin-left: auto; margin-right: 6px; }
+.mcard-todos { font-size: 11px; color: var(--text-faint); margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mcard-snooze { background: none; border: none; cursor: pointer; font-size: 12px; padding: 0 4px; opacity: 0.7; }
+.mcard-snooze:hover { opacity: 1; }

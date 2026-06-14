@@ -43,11 +43,19 @@ class Notifier {
     this.lastDelivered = new Map() // sessionId -> ts
     this.onHistory = opts.onHistory || (() => {})
     this.history = []
+    this.snoozed = new Map() // sessionId -> deadline ms
+  }
+
+  snooze(sessionId, minutes) {
+    if (!sessionId) return
+    this.snoozed.set(sessionId, this.now() + (minutes || 30) * 60_000)
   }
 
   deliver(notice) {
     const setting = this.getSettings().notify || {}
     if (setting.muted) return // do-not-disturb
+    const snoozeUntil = this.snoozed.get(notice.sessionId)
+    if (snoozeUntil && this.now() < snoozeUntil) return
     const mode = setting[EVENT_SETTING[notice.event.type]] || 'off'
     if (mode === 'off') return
 

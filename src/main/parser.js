@@ -75,6 +75,7 @@ function freshModel(file) {
     usage: emptyUsage(),
     tools: {},
     lastTool: null,
+    lastTodos: null, // latest TodoWrite todos (Mission Control chips)
     lastContextTokens: 0, // prompt size of the most recent assistant turn (= current context fill)
     lastUserPrompt: null,
     turnDurationCount: 0, // system/turn_duration records seen (exact turn closes)
@@ -244,6 +245,12 @@ function walkContent(o, model, timeline, role) {
         if (block.name) {
           model.tools[block.name] = (model.tools[block.name] || 0) + 1
           model.lastTool = block.name
+        }
+        if (block.name === 'TodoWrite' && block.input && Array.isArray(block.input.todos)) {
+          model.lastTodos = block.input.todos.slice(0, 50).map((td) => ({
+            content: truncate(td && td.content, 200),
+            status: (td && td.status) || 'pending'
+          }))
         }
         if (timeline) timeline.push({ kind: 'tool_use', ts, id: block.id || null, toolName: block.name || 'tool', toolInput: preview(block.input) })
         break

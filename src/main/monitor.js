@@ -81,6 +81,8 @@ class SessionMonitor {
         blocked: false,
         turnOpen: false,
         origin: 'auto',
+        attnSince: null,
+        todos: null,
         _mtime: -1,
         _attn: createAttentionState()
       }
@@ -109,6 +111,7 @@ class SessionMonitor {
           rec.model = (parsed.models && parsed.models[0]) || rec.model
           rec.usage = parsed.usage || rec.usage
           rec.lastSnippet = snippetOf(parsed)
+          rec.todos = parsed.lastTodos || null
           rec.lastRole = lastRoleOf(parsed)
           rec.lastActivityMs = meta.mtimeMs
           rec._parsedCounts = { user: parsed.counts.user, assistant: parsed.counts.assistant }
@@ -142,6 +145,10 @@ class SessionMonitor {
         if (rec._attn.turnOpen && rec.hasError) rec.hasError = false // a new turn clears the alert
       }
       if (rec.hasError && rec._errorAt && now - rec._errorAt > FINISHED_HOLD_MS) rec.hasError = false
+
+      const needsYou = rec.hasError || rec.blocked
+      if (needsYou && !rec.attnSince) rec.attnSince = now
+      else if (!needsYou) rec.attnSince = null
     }
 
     // Prune records that dropped out of the recent window.
