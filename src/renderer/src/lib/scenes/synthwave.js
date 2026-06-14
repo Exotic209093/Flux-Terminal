@@ -6,7 +6,8 @@ function makeStars(n, dim) {
 function create(ctx) {
   let stars = []
   function resize(d) { stars = makeStars(Math.max(30, Math.floor(d.w / 12)), d) }
-  function draw(t, d) {
+  function draw(t, d, reactivity = {}) {
+    const flare = Math.max(0, (reactivity || {}).flare || 0)
     const horizon = d.h * 0.6
     // sky gradient
     let g = ctx.createLinearGradient(0, 0, 0, horizon)
@@ -17,6 +18,13 @@ function create(ctx) {
     for (const s of stars) ctx.fillRect(s.x, s.y, 1.5, 1.5)
     // sun
     const cx = d.w / 2, cy = horizon - 60, r = Math.min(120, d.w * 0.12)
+    if (flare > 0.05) {
+      // radial glow behind sun on error/activity
+      const rg = ctx.createRadialGradient(cx, cy, r * 0.8, cx, cy, r * 2.5)
+      rg.addColorStop(0, `rgba(255,120,60,${(flare * 0.25).toFixed(3)})`)
+      rg.addColorStop(1, 'rgba(0,0,0,0)')
+      ctx.fillStyle = rg; ctx.fillRect(cx - r * 3, cy - r * 3, r * 6, r * 6)
+    }
     const sg = ctx.createLinearGradient(cx, cy - r, cx, cy + r)
     sg.addColorStop(0, '#ff8a3d'); sg.addColorStop(1, '#ff2fb0')
     ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.clip()

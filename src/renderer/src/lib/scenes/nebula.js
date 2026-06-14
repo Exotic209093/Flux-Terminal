@@ -8,7 +8,8 @@ function create(ctx) {
   let shoot = null
   let nextShoot = 2000
   function resize(d) { stars = makeStars(Math.max(40, Math.floor(d.w * d.h / 9000)), d) }
-  function draw(t, d) {
+  function draw(t, d, reactivity = {}) {
+    const tps = Math.max(0, (reactivity || {}).tokensPerSec || 0)
     ctx.fillStyle = 'rgba(7,6,18,0.4)'; ctx.fillRect(0, 0, d.w, d.h)
     ctx.globalCompositeOperation = 'lighter'
     // nebula blobs
@@ -25,7 +26,9 @@ function create(ctx) {
       ctx.fillStyle = '#e6e3ff'; ctx.fillRect(s.x, s.y, s.z * 1.6, s.z * 1.6)
     }
     ctx.globalAlpha = 1
-    if (t > nextShoot && !shoot) { shoot = { x: Math.random() * d.w, y: Math.random() * d.h * 0.5, life: 0 }; nextShoot = t + 3000 + Math.random() * 4000 }
+    // raise shooting-star frequency with token activity (interval shortens by up to 50%)
+    const shootInterval = tps > 0 ? Math.max(1500, 7000 - tps * 30) : 7000
+    if (t > nextShoot && !shoot) { shoot = { x: Math.random() * d.w, y: Math.random() * d.h * 0.5, life: 0 }; nextShoot = t + shootInterval * (0.5 + Math.random() * 0.5) }
     if (shoot) {
       shoot.life += 16; const len = 120
       const x2 = shoot.x + shoot.life * 0.6, y2 = shoot.y + shoot.life * 0.3
