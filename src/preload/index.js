@@ -127,7 +127,8 @@ contextBridge.exposeInMainWorld('flux', {
       const listener = (_e, entry) => cb(entry)
       ipcRenderer.on('notify:history-add', listener)
       return () => ipcRenderer.removeListener('notify:history-add', listener)
-    }
+    },
+    snooze: (sessionId, minutes) => ipcRenderer.invoke('notify:snooze', { sessionId, minutes })
   },
   missioncontrol: {
     list: () => ipcRenderer.invoke('missioncontrol:list'),

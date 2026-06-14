@@ -315,6 +315,10 @@ ipcMain.on('notify:setOpenSession', (_e, sessionId) => {
 })
 ipcMain.handle('notify:test', () => { if (notifier) notifier.test(); return { ok: true } })
 ipcMain.handle('notify:history', () => (notifier ? notifier.getHistory() : []))
+ipcMain.handle('notify:snooze', (_e, { sessionId, minutes }) => {
+  if (notifier) notifier.snooze(sessionId, minutes)
+  return { ok: true }
+})
 
 // ---- Mission Control --------------------------------------------------------
 ipcMain.handle('missioncontrol:list', () => {
