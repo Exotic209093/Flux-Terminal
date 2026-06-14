@@ -3,6 +3,13 @@
 
 const STATUS_RANK = { error: 0, blocked: 1, running: 2, finished: 3, idle: 4 }
 
+function todoSig(todos) {
+  if (!Array.isArray(todos)) return ''
+  let done = 0
+  for (const t of todos) if (t && t.status === 'completed') done++
+  return done + '/' + todos.length
+}
+
 function tokensOf(u) {
   if (!u) return 0
   return (u.input || 0) + (u.output || 0) + (u.cacheRead || 0) + (u.cacheCreation || 0)
@@ -34,7 +41,9 @@ function composeCards(records, now) {
       lastActivityMs: r.lastActivityMs,
       origin: r.origin || 'auto',
       status,
-      group: GROUP_OF[status]
+      group: GROUP_OF[status],
+      attnSince: r.attnSince || null,
+      todos: r.todos || null
     }
   })
   cards.sort(
@@ -53,7 +62,9 @@ function cardsChanged(prev, next) {
       a.status !== b.status ||
       tokensOf(a.usage) !== tokensOf(b.usage) ||
       a.subagents.running !== b.subagents.running ||
-      a.lastSnippet !== b.lastSnippet
+      a.lastSnippet !== b.lastSnippet ||
+      todoSig(a.todos) !== todoSig(b.todos) ||
+      a.attnSince !== b.attnSince
     ) {
       return true
     }
@@ -61,4 +72,4 @@ function cardsChanged(prev, next) {
   return false
 }
 
-module.exports = { composeCards, cardsChanged, statusFor, tokensOf, STATUS_RANK, GROUP_OF, FINISHED_MS }
+module.exports = { composeCards, cardsChanged, statusFor, tokensOf, todoSig, STATUS_RANK, GROUP_OF, FINISHED_MS }
