@@ -21,3 +21,6 @@ test('findDeepLink scans an argv array', () => {
   assert.deepStrictEqual(findDeepLink(['electron', '.', 'flux://mission']), { route: 'mission' })
   assert.strictEqual(findDeepLink(['electron', '.']), null)
 })
+test('parses flux://new', () => {
+  assert.deepStrictEqual(parseDeepLink('flux://new'), { route: 'new' })
+})
