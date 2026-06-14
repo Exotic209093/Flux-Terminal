@@ -29,6 +29,10 @@ nsis:
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
   createStartMenuShortcut: true
+protocols:
+  - name: Flux Terminal
+    schemes:
+      - flux
 publish:
   provider: github
   owner: Exotic209093

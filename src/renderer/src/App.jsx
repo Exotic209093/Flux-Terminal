@@ -281,6 +281,14 @@ export default function App() {
     return window.flux.notify.onOpenSession(({ sessionId }) => openById(sessionId))
   }, [openById])
 
+  // Route flux:// deep links from the OS (second-instance or open-url).
+  useEffect(() => {
+    return window.flux.deeplink.onOpen((route) => {
+      if (route.route === 'session') openById(route.sessionId)
+      else if (route.route === 'mission') setView('mission')
+    })
+  }, [openById])
+
   return (
     <div className="app-shell">
       <ThemeBackground theme={theme} animated={animated} />

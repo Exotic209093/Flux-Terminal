@@ -137,5 +137,12 @@ contextBridge.exposeInMainWorld('flux', {
       ipcRenderer.on('missioncontrol:update', listener)
       return () => ipcRenderer.removeListener('missioncontrol:update', listener)
     }
+  },
+  deeplink: {
+    onOpen: (cb) => {
+      const listener = (_e, route) => cb(route)
+      ipcRenderer.on('deeplink:open', listener)
+      return () => ipcRenderer.removeListener('deeplink:open', listener)
+    }
   }
 })
