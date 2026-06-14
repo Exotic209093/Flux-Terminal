@@ -2038,3 +2038,30 @@ html[data-theme="matrix"] .theme-bg { background: #050a05; }
 
 /* ---- Never-blocking composer: queued-send indicator -------------------- */
 .composer-queued { font-size: 11px; color: var(--text-faint); padding: 2px 4px; }
+
+/* ---- Task 5: open-subagent button on tool_use items ------------------- */
+.tl-open-subagent { margin-left: 8px; background: rgba(137,180,250,0.15); border: 1px solid var(--accent, #89b4fa); color: var(--accent, #89b4fa); border-radius: 5px; font-size: 11px; padding: 1px 8px; cursor: pointer; }
+
+/* ---- Task 2: Diff renderer -------------------------------------------- */
+.diff { font-family: var(--mono, monospace); font-size: 12px; border-radius: 6px; overflow-x: auto; margin: 4px 0; }
+.diff-hunk-head { color: var(--text-faint); padding: 2px 8px; background: rgba(255,255,255,0.03); }
+.diff-line { white-space: pre; padding: 0 8px; }
+.diff-add { background: rgba(64,160,64,0.18); }
+.diff-del { background: rgba(200,64,64,0.18); }
+.diff-ctx { color: var(--text-faint); }
+.diff-note { color: var(--text-faint); font-size: 12px; font-style: italic; padding: 4px 0; }
+
+/* ---- Task 3: inline diffs in tool_result items ------------------------- */
+.tl-diff-head { background: none; border: none; color: var(--text-faint); cursor: pointer; font-family: var(--mono, monospace); font-size: 12px; padding: 0 0 2px; }
+
+/* ---- Task 4: files-touched view + Timeline/Files toggle ---------------- */
+.sv-viewtoggle { display: flex; gap: 4px; margin-top: 8px; }
+.sv-viewtoggle button { background: rgba(255,255,255,0.05); border: 1px solid var(--border, #2a2a2a); color: var(--text-faint); padding: 3px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+.sv-viewtoggle button.active { color: var(--text); background: rgba(255,255,255,0.12); }
+.files-touched { overflow-y: auto; height: 100%; padding: 4px 8px; }
+.ft-file { border-bottom: 1px solid var(--border, #222); padding: 4px 0; }
+.ft-head { display: flex; align-items: center; gap: 8px; width: 100%; background: none; border: none; color: var(--text); cursor: pointer; text-align: left; padding: 4px; }
+.ft-path { flex: 1; font-family: var(--mono, monospace); font-size: 12px; overflow: hidden; text-overflow: ellipsis; }
+.ft-stat.ft-add { color: #6cc070; }
+.ft-stat.ft-del { color: #d06060; }
+.ft-count { color: var(--text-faint); font-size: 11px; }

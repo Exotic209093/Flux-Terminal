@@ -4,17 +4,22 @@ const DOT = { running: '●', done: '✓', error: '⚠' }
 
 // Collapsible list of a session's subagents. Click one to drill into its
 // timeline (rendered via the renderTimeline prop, reusing the parent's items).
-export default function SubagentPanel({ file, live, renderTimeline }) {
+export default function SubagentPanel({ file, live, renderTimeline, openId: openIdProp, onOpenId, onList }) {
   const [subagents, setSubagents] = useState([])
   const [open, setOpen] = useState(true)
-  const [openId, setOpenId] = useState(null)
+  const [internalOpenId, setInternalOpenId] = useState(null)
+  const openId = openIdProp !== undefined ? openIdProp : internalOpenId
+  const setOpenId = onOpenId || setInternalOpenId
   const [detail, setDetail] = useState(null)
 
   useEffect(() => {
     let alive = true
     const load = () =>
       window.flux.subagents.list({ file, live }).then((r) => {
-        if (alive && r.ok) setSubagents(r.subagents)
+        if (alive && r.ok) {
+          setSubagents(r.subagents)
+          if (onList) onList(r.subagents)
+        }
       })
     load()
     const t = live ? setInterval(load, 2000) : null
@@ -23,6 +28,10 @@ export default function SubagentPanel({ file, live, renderTimeline }) {
       if (t) clearInterval(t)
     }
   }, [file, live])
+
+  useEffect(() => {
+    if (openId) setOpen(true)
+  }, [openId])
 
   useEffect(() => {
     if (!openId) {

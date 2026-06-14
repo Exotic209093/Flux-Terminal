@@ -9,6 +9,8 @@ import PromptMenu from './PromptMenu'
 import Lightbox from './Lightbox'
 import SubagentPanel from './SubagentPanel'
 import TimelineItem from './TimelineItem'
+import FilesTouched from './FilesTouched'
+import { collectFilesTouched } from '../lib/filesTouched'
 import { Virtuoso } from 'react-virtuoso'
 
 function duration(start, end) {
@@ -48,6 +50,9 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
   const composerRef = useRef(null)
   const [lightbox, setLightbox] = useState(null)
   const [attachment, setAttachment] = useState(null) // { file, name }
+  const [subOpenId, setSubOpenId] = useState(null)
+  const [subList, setSubList] = useState([])
+  const [mainView, setMainView] = useState('timeline')
   const fileInputRef = useRef(null)
   const prevSession = useRef(null)
   const consumedScrollKey = useRef(null)
@@ -361,6 +366,13 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const virtuosoComponents = useMemo(() => ({ Footer: VirtuosoFooter }), [pending, sendState, sendError])
 
+  const subByToolUseId = useMemo(() => {
+    const m = {}
+    for (const s of subList) if (s.toolUseId) m[s.toolUseId] = s.agentId
+    return m
+  }, [subList])
+  const onOpenSubagent = useCallback((agentId) => setSubOpenId(agentId), [])
+
   if (loading) return <div className="sv-empty">Loading session…</div>
   if (!detail && !newChat) return <div className="sv-empty">Select a session to relive it.</div>
   if (detail && detail.ok === false) return <div className="sv-empty error">⚠ {detail.error}</div>
@@ -422,6 +434,8 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
   const maxCtx = modelContext(detail.models && detail.models[0])
   const ctxPct = Math.min(100, Math.round((ctx / maxCtx) * 100))
 
+  const filesCount = (detail.timeline ? collectFilesTouched(detail.timeline) : []).length
+
   return (
     <div className="session-view">
       <div className="sv-header">
@@ -453,38 +467,52 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
           <Stat label="Total tokens" value={formatTokens(totalTokens(usage))} />
           <Stat label="Est. cost" value={formatUSD(cost.total)} accent />
         </div>
+
+        <div className="sv-viewtoggle">
+          <button className={mainView === 'timeline' ? 'active' : ''} onClick={() => setMainView('timeline')}>Timeline</button>
+          <button className={mainView === 'files' ? 'active' : ''} onClick={() => setMainView('files')}>Files ({filesCount})</button>
+        </div>
       </div>
 
       {detail.file && (
         <SubagentPanel
           file={detail.file}
           live={false}
+          openId={subOpenId}
+          onOpenId={setSubOpenId}
+          onList={setSubList}
           renderTimeline={(items) => items.map((item, i) => <TimelineItem key={i} item={item} onImage={setLightbox} />)}
         />
       )}
 
-      <div className="sv-timeline-wrap">
-        <Virtuoso
-          ref={virtuosoRef}
-          className="sv-timeline"
-          data={detail.timeline || []}
-          followOutput={(atBottom) => (autoFollow.current && atBottom ? 'smooth' : false)}
-          atBottomStateChange={(atBottom) => {
-            autoFollow.current = atBottom
-            setShowJump(!atBottom)
-          }}
-          itemContent={(i, item) => (
-            <TimelineItem item={item} onImage={setLightbox} flash={i === flashIdx} />
-          )}
-          components={virtuosoComponents}
-        />
+      {mainView === 'files' ? (
+        <div className="sv-timeline-wrap">
+          <FilesTouched timeline={detail.timeline} />
+        </div>
+      ) : (
+        <div className="sv-timeline-wrap">
+          <Virtuoso
+            ref={virtuosoRef}
+            className="sv-timeline"
+            data={detail.timeline || []}
+            followOutput={(atBottom) => (autoFollow.current && atBottom ? 'smooth' : false)}
+            atBottomStateChange={(atBottom) => {
+              autoFollow.current = atBottom
+              setShowJump(!atBottom)
+            }}
+            itemContent={(i, item) => (
+              <TimelineItem item={item} onImage={setLightbox} flash={i === flashIdx} subByToolUseId={subByToolUseId} onOpenSubagent={onOpenSubagent} />
+            )}
+            components={virtuosoComponents}
+          />
 
-        {showJump && (
-          <button className="jump-latest" onClick={jumpToLatest} title="Jump to latest">
-            ↓
-          </button>
-        )}
-      </div>
+          {showJump && (
+            <button className="jump-latest" onClick={jumpToLatest} title="Jump to latest">
+              ↓
+            </button>
+          )}
+        </div>
+      )}
 
       <Composer
         composerRef={composerRef}
