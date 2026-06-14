@@ -48,6 +48,8 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
   const composerRef = useRef(null)
   const [lightbox, setLightbox] = useState(null)
   const [attachment, setAttachment] = useState(null) // { file, name }
+  const [subOpenId, setSubOpenId] = useState(null)
+  const [subList, setSubList] = useState([])
   const fileInputRef = useRef(null)
   const prevSession = useRef(null)
   const consumedScrollKey = useRef(null)
@@ -361,6 +363,13 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const virtuosoComponents = useMemo(() => ({ Footer: VirtuosoFooter }), [pending, sendState, sendError])
 
+  const subByToolUseId = useMemo(() => {
+    const m = {}
+    for (const s of subList) if (s.toolUseId) m[s.toolUseId] = s.agentId
+    return m
+  }, [subList])
+  const onOpenSubagent = useCallback((agentId) => setSubOpenId(agentId), [])
+
   if (loading) return <div className="sv-empty">Loading session…</div>
   if (!detail && !newChat) return <div className="sv-empty">Select a session to relive it.</div>
   if (detail && detail.ok === false) return <div className="sv-empty error">⚠ {detail.error}</div>
@@ -459,6 +468,9 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
         <SubagentPanel
           file={detail.file}
           live={false}
+          openId={subOpenId}
+          onOpenId={setSubOpenId}
+          onList={setSubList}
           renderTimeline={(items) => items.map((item, i) => <TimelineItem key={i} item={item} onImage={setLightbox} />)}
         />
       )}
@@ -474,7 +486,7 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
             setShowJump(!atBottom)
           }}
           itemContent={(i, item) => (
-            <TimelineItem item={item} onImage={setLightbox} flash={i === flashIdx} />
+            <TimelineItem item={item} onImage={setLightbox} flash={i === flashIdx} subByToolUseId={subByToolUseId} onOpenSubagent={onOpenSubagent} />
           )}
           components={virtuosoComponents}
         />

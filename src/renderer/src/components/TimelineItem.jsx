@@ -19,7 +19,7 @@ function fmtTs(ts) {
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
-function TimelineItemBase({ item, onImage, flash }) {
+function TimelineItemBase({ item, onImage, flash, subByToolUseId, onOpenSubagent }) {
   const [open, setOpen] = useState(false)
   const cls = 'tl-item tl-' + item.kind + (item.isError ? ' tl-error' : '') + (flash ? ' tl-flash' : '')
   return (
@@ -32,6 +32,11 @@ function TimelineItemBase({ item, onImage, flash }) {
         {item.kind === 'tool_use' ? (
           <div>
             <span className="tl-tool">{item.toolName}</span>
+            {subByToolUseId && item.id && subByToolUseId[item.id] && (
+              <button className="tl-open-subagent" onClick={() => onOpenSubagent && onOpenSubagent(subByToolUseId[item.id])}>
+                ↘ open subagent
+              </button>
+            )}
             {item.toolInput && <pre className="tl-pre">{item.toolInput}</pre>}
           </div>
         ) : item.kind === 'tool_result' ? (

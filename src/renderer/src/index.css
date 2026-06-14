@@ -2038,3 +2038,6 @@ html[data-theme="matrix"] .theme-bg { background: #050a05; }
 
 /* ---- Never-blocking composer: queued-send indicator -------------------- */
 .composer-queued { font-size: 11px; color: var(--text-faint); padding: 2px 4px; }
+
+/* ---- Task 5: open-subagent button on tool_use items ------------------- */
+.tl-open-subagent { margin-left: 8px; background: rgba(137,180,250,0.15); border: 1px solid var(--accent, #89b4fa); color: var(--accent, #89b4fa); border-radius: 5px; font-size: 11px; padding: 1px 8px; cursor: pointer; }
