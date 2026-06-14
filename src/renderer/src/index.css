@@ -2041,3 +2041,12 @@ html[data-theme="matrix"] .theme-bg { background: #050a05; }
 
 /* ---- Task 5: open-subagent button on tool_use items ------------------- */
 .tl-open-subagent { margin-left: 8px; background: rgba(137,180,250,0.15); border: 1px solid var(--accent, #89b4fa); color: var(--accent, #89b4fa); border-radius: 5px; font-size: 11px; padding: 1px 8px; cursor: pointer; }
+
+/* ---- Task 2: Diff renderer -------------------------------------------- */
+.diff { font-family: var(--mono, monospace); font-size: 12px; border-radius: 6px; overflow-x: auto; margin: 4px 0; }
+.diff-hunk-head { color: var(--text-faint); padding: 2px 8px; background: rgba(255,255,255,0.03); }
+.diff-line { white-space: pre; padding: 0 8px; }
+.diff-add { background: rgba(64,160,64,0.18); }
+.diff-del { background: rgba(200,64,64,0.18); }
+.diff-ctx { color: var(--text-faint); }
+.diff-note { color: var(--text-faint); font-size: 12px; font-style: italic; padding: 4px 0; }
