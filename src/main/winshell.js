@@ -6,8 +6,14 @@ const WIN = process.platform === 'win32'
 const INTERRUPT_ICON =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAHElEQVR4nGNgGAWjYBSMglEwCkbBKBgFo4CWAAAH0AABz0p9pQAAAABJRU5ErkJggg=='
 
+// LiveTracker emits state 'starting' | 'live' for an active tracked turn (never
+// 'running'); anything else (idle/cleared) clears the bar.
+function isLiveState(state) {
+  return state === 'live' || state === 'starting'
+}
+
 function progressForState(snapshot) {
-  if (snapshot && snapshot.state === 'running') return { value: 2, mode: 'indeterminate' }
+  if (snapshot && isLiveState(snapshot.state)) return { value: 2, mode: 'indeterminate' }
   return { value: -1, mode: 'none' }
 }
 
@@ -52,4 +58,4 @@ function installThumbar(win, { nativeImage, onInterrupt } = {}) {
   return { update }
 }
 
-module.exports = { progressForState, applyProgress, installJumpList, installThumbar, INTERRUPT_ICON }
+module.exports = { progressForState, applyProgress, installJumpList, installThumbar, isLiveState, INTERRUPT_ICON }

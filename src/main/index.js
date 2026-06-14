@@ -26,7 +26,7 @@ const { initAutoUpdate } = require('./updater')
 const { findDeepLink, parseDeepLink } = require('./deeplink')
 const { createTray } = require('./tray')
 const { isAllowedExternalUrl } = require('./shellio')
-const { installJumpList, installThumbar, applyProgress } = require('./winshell')
+const { installJumpList, installThumbar, applyProgress, isLiveState } = require('./winshell')
 
 let mainWindow = null
 let ptyManager = null
@@ -527,7 +527,7 @@ app.whenReady().then(() => {
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('live:update', snapshot)
       applyProgress(mainWindow, snapshot)
-      if (thumbar) thumbar.update(!!(snapshot && snapshot.state === 'running'))
+      if (thumbar) thumbar.update(!!(snapshot && isLiveState(snapshot.state)))
     }
   })
 
