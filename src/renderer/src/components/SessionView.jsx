@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { formatTokens, totalTokens, modelLabel, modelContext, projectName } from '../lib/format'
 import { estimateCost, formatUSD } from '../lib/pricing'
 import { insertTemplate, nextPlaceholderRange } from '../lib/templates'
@@ -8,6 +8,7 @@ import PromptMenu from './PromptMenu'
 import Lightbox from './Lightbox'
 import SubagentPanel from './SubagentPanel'
 import TimelineItem from './TimelineItem'
+import { Virtuoso } from 'react-virtuoso'
 
 function duration(start, end) {
   if (!start || !end) return null
@@ -29,6 +30,7 @@ function friendlyError(err) {
 
 export default function SessionView({ detail, loading, sendState, sendError, onSend, newChat, onPickFolder, scrollTarget }) {
   const scrollRef = useRef(null)
+  const virtuosoRef = useRef(null)
   const autoFollow = useRef(true)
   const [showJump, setShowJump] = useState(false)
   const [flashIdx, setFlashIdx] = useState(null)
@@ -54,8 +56,7 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
   const totalCount = detail && detail.counts ? detail.counts.total : 0
 
   const scrollToBottom = () => {
-    const el = scrollRef.current
-    if (el) el.scrollTop = el.scrollHeight
+    virtuosoRef.current && virtuosoRef.current.scrollToIndex({ index: 'LAST', behavior: 'auto' })
   }
 
   // Auto-scroll: snap to bottom on a new session, or on growth while following.
@@ -91,14 +92,11 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
     if (consumedScrollKey.current === scrollTarget.key) return
     if (!detail || detail.ok === false) return // wait for load; deps re-run us
     if (scrollTarget.sessionId && detail.sessionId !== scrollTarget.sessionId) return
-    const el = scrollRef.current
-    if (!el) return
-    const item = el.querySelectorAll('.tl-item')[scrollTarget.idx]
-    if (!item) return
+    if (!virtuosoRef.current) return
     consumedScrollKey.current = scrollTarget.key
     autoFollow.current = false
     setShowJump(false)
-    item.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    virtuosoRef.current.scrollToIndex({ index: scrollTarget.idx, align: 'center', behavior: 'smooth' })
     setFlashIdx(scrollTarget.idx)
     const timer = setTimeout(() => setFlashIdx(null), 900)
     return () => clearTimeout(timer)
@@ -200,19 +198,10 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
     [draft, promptTrigger] // eslint-disable-line react-hooks/exhaustive-deps
   )
 
-  const onScroll = () => {
-    const el = scrollRef.current
-    if (!el) return
-    const distance = el.scrollHeight - el.scrollTop - el.clientHeight
-    const atBottom = distance < 80
-    autoFollow.current = atBottom
-    setShowJump(!atBottom)
-  }
-
   const jumpToLatest = () => {
     autoFollow.current = true
     setShowJump(false)
-    scrollToBottom()
+    virtuosoRef.current && virtuosoRef.current.scrollToIndex({ index: 'LAST', behavior: 'smooth' })
   }
 
   // Read an image File/Blob → base64 → stash to a temp file via main process.
@@ -325,6 +314,26 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
     }
   }
 
+  function VirtuosoFooter() {
+    return (
+      <>
+        {pending && (
+          <div className="tl-item tl-user tl-pending">
+            <div className="tl-gutter"><span className="tl-label">You</span></div>
+            <div className="tl-body"><div className="tl-text">{pending}</div></div>
+          </div>
+        )}
+        {sendState === 'running' && (
+          <div className="tl-working"><span className="live-dot" /> claude is working…</div>
+        )}
+        {sendState === 'error' && <div className="tl-senderror">⚠ {friendlyError(sendError)}</div>}
+        {sendState === 'interrupted' && <div className="tl-senderror tl-interrupted">◼ Interrupted</div>}
+      </>
+    )
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const virtuosoComponents = useMemo(() => ({ Footer: VirtuosoFooter }), [pending, sendState, sendError])
+
   if (loading) return <div className="sv-empty">Loading session…</div>
   if (!detail && !newChat) return <div className="sv-empty">Select a session to relive it.</div>
   if (detail && detail.ok === false) return <div className="sv-empty error">⚠ {detail.error}</div>
@@ -427,28 +436,20 @@ export default function SessionView({ detail, loading, sendState, sendError, onS
       )}
 
       <div className="sv-timeline-wrap">
-        <div className="sv-timeline" ref={scrollRef} onScroll={onScroll}>
-          {(detail.timeline || []).map((item, i) => (
-            <TimelineItem key={i} item={item} onImage={setLightbox} flash={i === flashIdx} />
-          ))}
-          {pending && (
-            <div className="tl-item tl-user tl-pending">
-              <div className="tl-gutter">
-                <span className="tl-label">You</span>
-              </div>
-              <div className="tl-body">
-                <div className="tl-text">{pending}</div>
-              </div>
-            </div>
+        <Virtuoso
+          ref={virtuosoRef}
+          className="sv-timeline"
+          data={detail.timeline || []}
+          followOutput={(atBottom) => (autoFollow.current && atBottom ? 'smooth' : false)}
+          atBottomStateChange={(atBottom) => {
+            autoFollow.current = atBottom
+            setShowJump(!atBottom)
+          }}
+          itemContent={(i, item) => (
+            <TimelineItem item={item} onImage={setLightbox} flash={i === flashIdx} />
           )}
-          {sendState === 'running' && (
-            <div className="tl-working">
-              <span className="live-dot" /> claude is working…
-            </div>
-          )}
-          {sendState === 'error' && <div className="tl-senderror">⚠ {friendlyError(sendError)}</div>}
-          {sendState === 'interrupted' && <div className="tl-senderror tl-interrupted">◼ Interrupted</div>}
-        </div>
+          components={virtuosoComponents}
+        />
 
         {showJump && (
           <button className="jump-latest" onClick={jumpToLatest} title="Jump to latest">
